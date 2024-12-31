@@ -1,0 +1,10 @@
+# Python
+*.egg-info
+__pycache__
+build
+
+# Cython
+*.cpp
+*.cpython-*
+*.html
+cython_debug

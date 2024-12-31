@@ -149,6 +149,6 @@ class AlphaZeroResNet(nn.Module):
         checkpoint = torch.load(
             checkpoint_dir / "model.pth", map_location="cpu", weights_only=True
         )
-        net.load_state_dict(checkpoint["model_state_dict"])
+        net.load_state_dict(checkpoint)
 
         return net

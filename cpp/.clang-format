@@ -1,0 +1,10 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+AccessModifierOffset: -4
+
+AlignAfterOpenBracket: BlockIndent
+AllowShortFunctionsOnASingleLine: Empty
+AlwaysBreakTemplateDeclarations: Yes
+BinPackArguments: false
+BinPackParameters: false
+PackConstructorInitializers: NextLine

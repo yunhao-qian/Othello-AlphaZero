@@ -148,7 +148,7 @@ def main() -> None:
         checkpoint = torch.load(
             args.from_checkpoint / "model.pth", map_location="cpu", weights_only=True
         )
-        net.load_state_dict(checkpoint["model"])
+        net.load_state_dict(checkpoint)
 
     if args.device is None:
         args.device = "cuda" if torch.cuda.is_available() else "cpu"
