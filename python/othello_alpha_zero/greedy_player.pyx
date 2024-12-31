@@ -22,6 +22,9 @@ cdef class GreedyPlayer:
     def __init__(self) -> None:
         self.position = get_initial_position()
 
+    def reset_position(self, position: Position) -> None:
+        self.position = position
+
     def get_position(self) -> Position:
         return self.position
 

@@ -11,6 +11,7 @@ from .othello cimport (
     is_terminal_position,
     Position,
 )
+from .utility cimport bitwise_count
 
 from PIL import Image, ImageDraw
 
@@ -149,6 +150,7 @@ cpdef vector[int] get_legal_actions(Position &position) noexcept nogil:
     if position.legal_moves == 0:
         actions.push_back(64)
     else:
+        actions.reserve(<size_t>bitwise_count(position.legal_moves))
         move_mask = <uint64_t>1 << 63
         for action in range(64):
             if move_mask & position.legal_moves:
