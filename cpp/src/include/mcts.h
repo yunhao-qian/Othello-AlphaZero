@@ -5,17 +5,19 @@
 #define OTHELLO_MCTS_MCTS_H
 
 #include <mutex>
+#include <random>
 #include <vector>
 
 #include "position.h"
+#include "queue.h"
 
 namespace othello {
 
-/// @brief Node in the MCTS search tree.
+/// @brief Node in the search tree.
 ///
-class MCTSNode {
+class SearchNode {
 public:
-    MCTSNode(
+    SearchNode(
         const Position &position,
         int previous_action = 64,
         int visit_count = 0,
@@ -37,6 +39,51 @@ public:
     float mean_action_value;
     float prior_probability;
     std::vector<unsigned> children;
+};
+
+/// @brief Input from search threads to the neural network input thread.
+///
+struct NeuralNetInput {
+    int thread_id;
+    bool is_finished;
+    std::vector<float> features;
+};
+
+/// @brief Output from the neural network output thread to a search thread.
+///
+struct NeuralNetOutput {
+    std::vector<float> policy;
+    float value;
+};
+
+class MCTS;
+
+/// @brief Local logic and data for a single search thread.
+///
+class SearchThread {
+public:
+    SearchThread(MCTS &mcts, int thread_id);
+
+    /// @brief Runs the search thread.
+    ///
+    void run();
+
+private:
+    /// @brief Runs a single simulation.
+    ///
+    void _simulate();
+
+    /// @brief Chooses the child with the highest Upper Confidence Bound (UCB).
+    /// @param node_index Index of the parent node.
+    /// @return Index of the chosen child.
+    unsigned _choose_best_child(unsigned node_index);
+
+    MCTS *_mcts;
+    int _thread_id;
+    Queue<NeuralNetOutput> _neural_net_output_queue;
+    std::vector<unsigned> _search_path;
+    std::mt19937 _random_engine;
+    std::gamma_distribution<float> _gamma_distribution;
 };
 
 /// @brief Monte Carlo Tree Search algorithm.
@@ -103,6 +150,8 @@ public:
     void set_dirichlet_alpha(float value) noexcept;
 
 private:
+    friend class SearchThread;
+
     int _num_simulations;
     int _batch_size;
     int _num_threads;
@@ -110,8 +159,10 @@ private:
     float _dirichlet_epsilon;
     float _dirichlet_alpha;
 
-    std::vector<MCTSNode> _search_tree;
+    std::vector<SearchNode> _search_tree;
     std::mutex _search_tree_mutex;
+
+    Queue<NeuralNetInput> _neural_net_input_queue;
 };
 
 } // namespace othello

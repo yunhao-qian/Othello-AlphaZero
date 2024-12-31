@@ -1,3 +1,6 @@
+/// @file othello_mcts.cpp
+/// @brief Definition of Python bindings.
+
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
@@ -16,6 +19,9 @@ NB_MODULE(_othello_mcts_impl, m) {
         .def("legal_actions", &Position::legal_actions)
         .def("apply_action", &Position::apply_action, "action"_a)
         .def("is_terminal", &Position::is_terminal)
+        .def("action_value", &Position::action_value)
+        .def("to_features", &Position::to_features)
+        .def("player", &Position::player)
         .def("__call__", &Position::operator(), "row"_a, "col"_a)
         .def("is_legal_move", &Position::is_legal_move, "row"_a, "col"_a)
         .def("__str__", &Position::to_string);

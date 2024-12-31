@@ -6,6 +6,153 @@
 #include <algorithm>
 #include <cmath>
 
+othello::SearchThread::SearchThread(MCTS &mcts, int thread_id)
+    : _mcts(&mcts),
+      _thread_id(thread_id),
+      _random_engine(std::random_device()()),
+      _gamma_distribution(mcts.dirichlet_alpha(), 1.0f) {}
+
+void othello::SearchThread::run() {
+    int num_simulations = (_mcts->_num_simulations + _mcts->_num_threads - 1) /
+                          _mcts->_num_threads;
+    for (int i = 0; i < num_simulations; ++i) {
+        _simulate();
+    }
+    _mcts->_neural_net_input_queue.push({
+        _thread_id, // thread_id
+        true,       // is_finished
+        {}          // features
+    });
+}
+
+void othello::SearchThread::_simulate() {
+    std::vector<unsigned> &search_path = _search_path;
+    search_path.clear();
+    search_path.push_back(0); // Root node
+
+    std::vector<SearchNode> &search_tree = _mcts->_search_tree;
+
+    std::mutex &search_tree_mutex = _mcts->_search_tree_mutex;
+    search_tree_mutex.lock();
+
+    while (true) {
+        unsigned node_index = search_path.back();
+        SearchNode &node = search_tree[node_index];
+        if (node.position.is_terminal() || node.children.empty()) {
+            // It is a terminal position or the node has not been expanded yet.
+            break;
+        }
+        search_path.push_back(_choose_best_child(node_index));
+    }
+
+    float action_value;
+    int visit_count_increment;
+    float total_action_value_offset;
+    if (SearchNode &leaf = search_tree[search_path.back()];
+        leaf.position.is_terminal()) {
+        visit_count_increment = 1;
+        total_action_value_offset = 0.0f;
+
+        // If the game is over, we do not need neural network evaluation.
+        action_value = leaf.position.action_value();
+    } else {
+        visit_count_increment = 0;
+        total_action_value_offset = 1.0f;
+
+        // Use virtual losses to ensure each thread evaluates different nodes.
+        for (unsigned child_index : search_path) {
+            // The root node do not need to be updated, but it does not matter.
+            SearchNode &child = search_tree[child_index];
+            child.visit_count += 1;
+            child.total_action_value -= 1.0f;
+            child.mean_action_value =
+                child.total_action_value / child.visit_count;
+        }
+
+        search_tree_mutex.unlock();
+
+        _mcts->_neural_net_input_queue.push({
+            _thread_id,                 // thread_id
+            false,                      // is_finished
+            leaf.position.to_features() // features
+        });
+        NeuralNetOutput neural_net_output = _neural_net_output_queue.pop();
+
+        search_tree_mutex.lock();
+
+        // There is a small chance that the leaf node has already been expanded
+        // by another thread, in which case we should not overwrite the
+        // children.
+        if (leaf.children.empty()) {
+            std::vector<int> legal_actions = leaf.position.legal_actions();
+            leaf.children.reserve(legal_actions.size());
+            for (int action : legal_actions) {
+                leaf.children.push_back(static_cast<unsigned>(search_tree.size()
+                ));
+                search_tree.emplace_back(
+                    leaf.position.apply_action(action),
+                    action,
+                    0,                               // visit_count
+                    0.0f,                            // total_action_value
+                    0.0f,                            // mean_action_value
+                    neural_net_output.policy[action] // prior_probability
+                );
+            }
+        }
+
+        action_value = neural_net_output.value;
+        if (leaf.position.player() != 1) {
+            action_value = -action_value;
+        }
+    }
+
+    // Backward pass to update the visit counts and action-values.
+    for (unsigned child_index : search_path) {
+        SearchNode &child = search_tree[child_index];
+        child.visit_count += visit_count_increment;
+        child.total_action_value +=
+            total_action_value_offset +
+            (child.position.player() == 1 ? action_value : -action_value);
+        child.mean_action_value = child.total_action_value / child.visit_count;
+    }
+
+    search_tree_mutex.unlock();
+}
+
+unsigned othello::SearchThread::_choose_best_child(unsigned node_index) {
+    std::vector<unsigned> &children = _mcts->_search_tree[node_index].children;
+
+    int sum_visit_count = 0;
+    for (unsigned child_index : children) {
+        sum_visit_count += _mcts->_search_tree[child_index].visit_count;
+    }
+    float sqrt_sum_visit_count = std::sqrt(static_cast<float>(sum_visit_count));
+
+    bool is_exploration = node_index == 0 && _mcts->_dirichlet_epsilon > 0.0f;
+    // UCB is at least the minimum action-value, which is -1.
+    float best_ucb = -10.0f;
+    unsigned best_child_index = 0;
+
+    for (unsigned child_index : children) {
+        const SearchNode &child = _mcts->_search_tree[child_index];
+        float probability = child.prior_probability;
+        if (is_exploration) {
+            float noise = _gamma_distribution(_random_engine);
+            probability *= 1.0f - _mcts->_dirichlet_epsilon;
+            probability += _mcts->_dirichlet_epsilon * noise;
+        }
+        float ucb = child.mean_action_value +
+                    _mcts->_exploration_weight * probability *
+                        sqrt_sum_visit_count / (1.0f + child.visit_count);
+        if (ucb > best_ucb) {
+            best_ucb = ucb;
+            best_child_index = child_index;
+        }
+    }
+
+    return best_child_index;
+}
+
 othello::MCTS::MCTS(
     int num_simulations,
     int batch_size,
@@ -34,7 +181,7 @@ othello::Position othello::MCTS::root_position() const {
 
 namespace {
 
-using othello::MCTSNode;
+using othello::SearchNode;
 
 /// @brief Collects the subtree rooted at the given node from the old tree to
 ///     the new tree.
@@ -43,11 +190,11 @@ using othello::MCTSNode;
 /// @param old_index Index of the root node in the old tree.
 /// @return Index of the root node in the new tree.
 unsigned collect_subtree(
-    const std::vector<MCTSNode> &old_tree,
-    std::vector<MCTSNode> &new_tree,
+    const std::vector<SearchNode> &old_tree,
+    std::vector<SearchNode> &new_tree,
     unsigned old_index
 ) {
-    const MCTSNode &old_node = old_tree[old_index];
+    const SearchNode &old_node = old_tree[old_index];
     unsigned new_index = static_cast<unsigned>(new_tree.size());
     new_tree.emplace_back(
         old_node.position,
@@ -73,9 +220,9 @@ unsigned collect_subtree(
 /// @param tree Original search tree.
 /// @param new_root_index Index of the new root node.
 /// @return Pruned search tree.
-std::vector<MCTSNode>
-prune_search_tree(const std::vector<MCTSNode> &tree, int new_root_index) {
-    std::vector<MCTSNode> new_tree;
+std::vector<SearchNode>
+prune_search_tree(const std::vector<SearchNode> &tree, int new_root_index) {
+    std::vector<SearchNode> new_tree;
     new_tree.reserve(tree.size());
     collect_subtree(tree, new_tree, new_root_index);
     return new_tree;
@@ -84,7 +231,7 @@ prune_search_tree(const std::vector<MCTSNode> &tree, int new_root_index) {
 } // namespace
 
 void othello::MCTS::apply_action(int action) {
-    MCTSNode &root = _search_tree.front();
+    SearchNode &root = _search_tree.front();
 
     std::vector<int> legal_actions = root.position.legal_actions();
     if (std::find(legal_actions.begin(), legal_actions.end(), action) ==
@@ -138,8 +285,7 @@ void othello::MCTS::set_dirichlet_epsilon(float value) noexcept {
     if (!std::isfinite(value)) {
         value = 0.0f;
     } else {
-        value = std::max(0.0f, value);
-        value = std::min(1.0f, value);
+        value = std::clamp(value, 0.0f, 1.0f);
     }
     _dirichlet_epsilon = value;
 }

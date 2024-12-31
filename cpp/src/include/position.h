@@ -34,6 +34,14 @@ public:
         return _player == 0;
     }
 
+    /// @brief Returns the action value of the position for Player 1.
+    /// @return 1.0 if Player 1 wins, -1.0 if Player 2 wins, 0.0 if draw.
+    float action_value() const noexcept;
+
+    /// @brief Creates a feature vector of the position for neural networks.
+    /// @return Flat vector of 3x8x8 features.
+    std::vector<float> to_features() const;
+
     /// @brief Returns the current player.
     /// @return 1 if black, 2 if white, 0 if the game is over.
     int player() const noexcept {

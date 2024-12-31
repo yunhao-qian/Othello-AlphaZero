@@ -3,6 +3,7 @@
 
 #include "position.h"
 
+#include <algorithm>
 #include <array>
 
 #include "utility.h"
@@ -122,6 +123,36 @@ othello::Position othello::Position::apply_action(int action) const noexcept {
     }
 
     return Position(player, p1_discs, p2_discs, legal_moves, next_legal_moves);
+}
+
+float othello::Position::action_value() const noexcept {
+    int p1_num_discs = popcount(_p1_discs);
+    int p2_num_discs = popcount(_p2_discs);
+    if (p1_num_discs > p2_num_discs) {
+        return 1.0f;
+    }
+    if (p1_num_discs < p2_num_discs) {
+        return -1.0f;
+    }
+    return 0.0f;
+}
+
+std::vector<float> othello::Position::to_features() const {
+    std::vector<float> features(3 * 64, 0.0f);
+    std::uint64_t square_mask = 1ULL << 63;
+    for (int i = 0; i < 64; ++i) {
+        if ((_p1_discs & square_mask) != 0) {
+            features[i] = 1.0f;
+        }
+        if ((_p2_discs & square_mask) != 0) {
+            features[64 + i] = 1.0f;
+        }
+        square_mask >>= 1;
+    }
+    if (_player != 1) {
+        std::fill(features.begin() + 2 * 64, features.end(), 1.0f);
+    }
+    return features;
 }
 
 int othello::Position::operator()(int row, int col) const noexcept {

@@ -251,9 +251,9 @@ cdef void _simulate_once(
                     child.mean_action_value = 0.0
                     child.prior_probability = policy_data[action]
 
-                action_value = value_data[0]
-                if leaf_position.player != 1:
-                    action_value = -action_value
+            action_value = value_data[0]
+            if leaf_position.player != 1:
+                action_value = -action_value
 
         # Backward pass to update the visit counts and action-values.
         for i in range(1, search_path.size()):
