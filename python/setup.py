@@ -7,4 +7,9 @@ setup(
     install_requires=[],
     packages=find_packages(include=["othello_alpha_zero", "othello_alpha_zero.*"]),
     ext_modules=cythonize("othello_alpha_zero/**/*.pyx"),
+    entry_points={
+        "console_scripts": [
+            "othello-train = othello_alpha_zero.train:main",
+        ]
+    },
 )

@@ -1,6 +1,10 @@
 """Neural network proposed in the AlphaGo Zero paper, extended to support general board
 games."""
 
+import json
+import os
+from pathlib import Path
+
 import torch
 from torch import nn
 
@@ -129,3 +133,22 @@ class AlphaZeroResNet(nn.Module):
         policy = self.policy_head(x)
         value = self.value_head(x)
         return policy, value
+
+    @staticmethod
+    def from_checkpoint(checkpoint_dir: str | os.PathLike) -> "AlphaZeroResNet":
+        """Load the neural network from a checkpoint directory."""
+
+        checkpoint_dir = Path(checkpoint_dir)
+        if not checkpoint_dir.is_dir():
+            raise ValueError(f"'{checkpoint_dir}; is not a directory")
+
+        with (checkpoint_dir / "config.json").open() as config_file:
+            config = json.load(config_file)
+        net = AlphaZeroResNet(**config)
+
+        checkpoint = torch.load(
+            checkpoint_dir / "model.pth", map_location="cpu", weights_only=True
+        )
+        net.load_state_dict(checkpoint["model_state_dict"])
+
+        return net
