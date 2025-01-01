@@ -130,6 +130,9 @@ void othello::SearchThread::_simulate() {
 
 unsigned othello::SearchThread::_choose_best_child(unsigned node_index) {
     std::vector<unsigned> &children = _mcts->_search_tree[node_index].children;
+    if (children.size() == 1) {
+        return children.front();
+    }
 
     int sum_visit_count = 0;
     for (unsigned child_index : children) {
@@ -140,7 +143,7 @@ unsigned othello::SearchThread::_choose_best_child(unsigned node_index) {
     bool is_exploration = node_index == 0 && _mcts->_dirichlet_epsilon > 0.0f;
     // UCB is at least the minimum action-value, which is -1.
     float best_ucb = -10.0f;
-    unsigned best_child_index = 0;
+    unsigned best_child_index = children.front();
 
     for (unsigned child_index : children) {
         const SearchNode &child = _mcts->_search_tree[child_index];

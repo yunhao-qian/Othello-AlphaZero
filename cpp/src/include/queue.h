@@ -4,6 +4,7 @@
 #ifndef OTHELLO_MCTS_QUEUE_H
 #define OTHELLO_MCTS_QUEUE_H
 
+#include <algorithm>
 #include <condition_variable>
 #include <mutex>
 #include <queue>
@@ -24,6 +25,10 @@ public:
     /// @brief Pops an element from the queue.
     /// @return Popped element.
     T pop();
+
+    /// @brief Clears the queue.
+    ///
+    void clear();
 
 private:
     std::queue<T> _queue;
@@ -51,6 +56,13 @@ T othello::Queue<T>::pop() {
     T value = std::move(_queue.front());
     _queue.pop();
     return value;
+}
+
+template <typename T>
+void othello::Queue<T>::clear() {
+    std::queue<T> new_queue;
+    std::lock_guard<std::mutex> lock(_mutex);
+    std::swap(_queue, new_queue);
 }
 
 #endif // OTHELLO_MCTS_QUEUE_H
