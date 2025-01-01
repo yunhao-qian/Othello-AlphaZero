@@ -13,12 +13,13 @@ othello::SearchThread::SearchThread(MCTS &mcts, int thread_id)
       _gamma_distribution(mcts.dirichlet_alpha(), 1.0f) {}
 
 void othello::SearchThread::run() {
-    int num_simulations = (_mcts->_num_simulations + _mcts->_num_threads - 1) /
-                          _mcts->_num_threads;
+    int num_simulations =
+        (_mcts->num_simulations() + _mcts->num_threads() - 1) /
+        _mcts->num_threads();
     for (int i = 0; i < num_simulations; ++i) {
         _simulate();
     }
-    _mcts->_neural_net_input_queue.push({
+    _mcts->_neural_net_input_queue.push(NeuralNetInput{
         _thread_id, // thread_id
         true,       // is_finished
         {}          // features
@@ -28,33 +29,35 @@ void othello::SearchThread::run() {
 void othello::SearchThread::_simulate() {
     std::vector<unsigned> &search_path = _search_path;
     search_path.clear();
-    search_path.push_back(0); // Root node
 
     std::vector<SearchNode> &search_tree = _mcts->_search_tree;
 
     std::mutex &search_tree_mutex = _mcts->_search_tree_mutex;
     search_tree_mutex.lock();
 
-    while (true) {
-        unsigned node_index = search_path.back();
-        SearchNode &node = search_tree[node_index];
-        if (node.position.is_terminal() || node.children.empty()) {
+    for (unsigned node_index = 0;;
+         node_index = _choose_best_child(node_index)) {
+        search_path.push_back(node_index);
+        if (SearchNode &node = search_tree[node_index];
+            node.position.is_terminal() || node.children.empty()) {
             // It is a terminal position or the node has not been expanded yet.
             break;
         }
-        search_path.push_back(_choose_best_child(node_index));
     }
+
+    unsigned leaf_index = search_path.back();
+    Position leaf_position = search_tree[leaf_index].position;
 
     float action_value;
     int visit_count_increment;
     float total_action_value_offset;
-    if (SearchNode &leaf = search_tree[search_path.back()];
-        leaf.position.is_terminal()) {
+
+    if (leaf_position.is_terminal()) {
         visit_count_increment = 1;
         total_action_value_offset = 0.0f;
 
         // If the game is over, we do not need neural network evaluation.
-        action_value = leaf.position.action_value();
+        action_value = leaf_position.action_value();
     } else {
         visit_count_increment = 0;
         total_action_value_offset = 1.0f;
@@ -71,10 +74,10 @@ void othello::SearchThread::_simulate() {
 
         search_tree_mutex.unlock();
 
-        _mcts->_neural_net_input_queue.push({
+        _mcts->_neural_net_input_queue.push(NeuralNetInput{
             _thread_id,                 // thread_id
             false,                      // is_finished
-            leaf.position.to_features() // features
+            leaf_position.to_features() // features
         });
         NeuralNetOutput neural_net_output = _neural_net_output_queue.pop();
 
@@ -83,25 +86,31 @@ void othello::SearchThread::_simulate() {
         // There is a small chance that the leaf node has already been expanded
         // by another thread, in which case we should not overwrite the
         // children.
-        if (leaf.children.empty()) {
-            std::vector<int> legal_actions = leaf.position.legal_actions();
-            leaf.children.reserve(legal_actions.size());
+        if (std::vector<unsigned> *leaf_children =
+                &search_tree[leaf_index].children;
+            leaf_children->empty()) {
+            std::vector<int> legal_actions = leaf_position.legal_actions();
+            leaf_children->reserve(legal_actions.size());
             for (int action : legal_actions) {
-                leaf.children.push_back(static_cast<unsigned>(search_tree.size()
-                ));
+                leaf_children->push_back(static_cast<unsigned>(search_tree.size(
+                )));
                 search_tree.emplace_back(
-                    leaf.position.apply_action(action),
+                    leaf_position.apply_action(action),
                     action,
                     0,                               // visit_count
                     0.0f,                            // total_action_value
                     0.0f,                            // mean_action_value
                     neural_net_output.policy[action] // prior_probability
                 );
+
+                // The leaf_children pointer may be invalidated by the
+                // reallocation of the search_tree vector.
+                leaf_children = &search_tree[leaf_index].children;
             }
         }
 
         action_value = neural_net_output.value;
-        if (leaf.position.player() != 1) {
+        if (leaf_position.player() != 1) {
             action_value = -action_value;
         }
     }

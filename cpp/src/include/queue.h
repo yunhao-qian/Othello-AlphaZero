@@ -17,8 +17,9 @@ template <typename T>
 class Queue {
 public:
     /// @brief Pushes a new element to the queue.
-    /// @param value Element to push.
-    void push(const T &value);
+    /// @param value Lvalue or rvalue reference to the element.
+    template <typename U>
+    void push(U &&value);
 
     /// @brief Pops an element from the queue.
     /// @return Popped element.
@@ -33,9 +34,13 @@ private:
 } // namespace othello
 
 template <typename T>
-void othello::Queue<T>::push(const T &value) {
+template <typename U>
+void othello::Queue<T>::push(U &&value) {
     std::lock_guard<std::mutex> lock(_mutex);
-    _queue.push(value);
+    _queue.push(std::forward<U>(value));
+
+    // We expect the queue to be single/multi-in single-out, so notify_one is
+    // sufficient.
     _condition_variable.notify_one();
 }
 

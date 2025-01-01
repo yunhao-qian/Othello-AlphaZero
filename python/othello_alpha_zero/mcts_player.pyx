@@ -234,6 +234,10 @@ cdef void _simulate_once(
             # deadlock.
             context.search_tree_mutex.lock()
 
+            # The pointer may have been invalidated by the reallocation of the
+            # search_tree vector.
+            leaf = &context.search_tree[search_path.back()]
+
             # There is a small chance that the leaf node has already been expanded by
             # another thread, in which case we should not overwrite the children.
             if leaf.children.empty():
@@ -250,6 +254,9 @@ cdef void _simulate_once(
                     child.total_action_value = 0.0
                     child.mean_action_value = 0.0
                     child.prior_probability = policy_data[action]
+
+                    # Again, the pointer may have been invalidated.
+                    leaf = &context.search_tree[search_path.back()]
 
             action_value = value_data[0]
             if leaf_position.player != 1:
@@ -593,9 +600,10 @@ def _search(player: MCTSPlayer) -> tuple[list[int], list[int], list[float]]:
     player.net.eval()
     device = next(player.net.parameters()).device
 
-    # This is the maximum number of nodes the search tree can have.
+    # A rough estimate of the total number of nodes: 4 legal moves per non-terminal
+    # position.
     player.context.search_tree.reserve(
-        player.context.search_tree.size() + <size_t>player.context.num_simulations
+        player.context.search_tree.size() + <size_t>player.context.num_simulations * 4
     )
 
     net_input_queue = Queue()
