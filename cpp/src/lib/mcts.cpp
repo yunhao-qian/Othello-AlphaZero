@@ -316,7 +316,9 @@ unsigned collect_subtree(
 std::vector<SearchNode>
 prune_search_tree(const std::vector<SearchNode> &tree, int new_root_index) {
     std::vector<SearchNode> new_tree;
-    new_tree.reserve(tree.size());
+    // The capacity of the search tree will be ever growing, but it should not
+    // be a problem because the total number of nodes is not huge.
+    new_tree.reserve(tree.capacity());
     collect_subtree(tree, new_tree, new_root_index);
     return new_tree;
 }
