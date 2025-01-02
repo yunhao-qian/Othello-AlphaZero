@@ -5,6 +5,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <thread>
+
+#include <pybind11/stl.h>
+#include <torch/extension.h>
+
+namespace py = pybind11;
+using namespace py::literals;
 
 othello::SearchThread::SearchThread(MCTS &mcts, int thread_id)
     : _mcts(&mcts),
@@ -19,11 +27,7 @@ void othello::SearchThread::run() {
     for (int i = 0; i < num_simulations; ++i) {
         _simulate();
     }
-    _mcts->_neural_net_input_queue.push(NeuralNetInput{
-        _thread_id, // thread_id
-        true,       // is_finished
-        {}          // features
-    });
+    _mcts->_neural_net_input_queue.push(NeuralNetInput{_thread_id, {}});
 }
 
 void othello::SearchThread::_simulate() {
@@ -74,11 +78,9 @@ void othello::SearchThread::_simulate() {
 
         search_tree_mutex.unlock();
 
-        _mcts->_neural_net_input_queue.push(NeuralNetInput{
-            _thread_id,                 // thread_id
-            false,                      // is_finished
-            leaf_position.to_features() // features
-        });
+        _mcts->_neural_net_input_queue.push(
+            NeuralNetInput{_thread_id, leaf_position.to_features()}
+        );
         NeuralNetOutput neural_net_output = _neural_net_output_queue.pop();
 
         search_tree_mutex.lock();
@@ -146,7 +148,7 @@ unsigned othello::SearchThread::_choose_best_child(unsigned node_index) {
     unsigned best_child_index = children.front();
 
     for (unsigned child_index : children) {
-        const SearchNode &child = _mcts->_search_tree[child_index];
+        SearchNode &child = _mcts->_search_tree[child_index];
         float probability = child.prior_probability;
         if (is_exploration) {
             float noise = _gamma_distribution(_random_engine);
@@ -166,6 +168,7 @@ unsigned othello::SearchThread::_choose_best_child(unsigned node_index) {
 }
 
 othello::MCTS::MCTS(
+    const std::string &torch_device,
     int num_simulations,
     int batch_size,
     int num_threads,
@@ -173,6 +176,7 @@ othello::MCTS::MCTS(
     float dirichlet_epsilon,
     float dirichlet_alpha
 ) {
+    set_torch_device(torch_device);
     set_num_simulations(num_simulations);
     set_batch_size(batch_size);
     set_num_threads(num_threads);
@@ -189,6 +193,83 @@ void othello::MCTS::reset_position(const Position &position) {
 
 othello::Position othello::MCTS::root_position() const {
     return _search_tree.front().position;
+}
+
+py::object othello::MCTS::search(py::object neural_net) {
+    _neural_net_input_queue.clear();
+    _batched_neural_net_input_queue.clear();
+    _batched_neural_net_output_queue.clear();
+    _search_threads.clear();
+    _search_threads.reserve(_num_threads);
+
+    std::vector<std::thread> threads;
+    threads.reserve(static_cast<std::size_t>(2 + _num_threads));
+
+    threads.emplace_back(&MCTS::_neural_net_input_thread, this);
+    threads.emplace_back(&MCTS::_neural_net_output_thread, this);
+    for (int thread_id = 0; thread_id < _num_threads; ++thread_id) {
+        _search_threads.push_back(
+            std::make_unique<SearchThread>(*this, thread_id)
+        );
+        threads.emplace_back(&SearchThread::run, _search_threads.back().get());
+    }
+
+    while (true) {
+        BatchedNeuralNetInput batched_input =
+            _batched_neural_net_input_queue.pop();
+        if (batched_input.thread_ids.empty()) {
+            // All search threads have finished. Propagate the signal to the
+            // neural network output thread.
+            _batched_neural_net_output_queue.push(BatchedNeuralNetOutput{
+                {},
+                torch::empty({0, 65}, torch::kFloat32),
+                torch::empty({0}, torch::kFloat32)
+            });
+            break;
+        }
+        py::tuple policies_and_values =
+            neural_net(py::cast(batched_input.features));
+        torch::Tensor policies = policies_and_values[0].cast<torch::Tensor>();
+        torch::Tensor values = policies_and_values[1].cast<torch::Tensor>();
+        // Without detach(), the tensors will hold references to Python objects
+        // and lead to unexpected GIL acquisitions.
+        _batched_neural_net_output_queue.push(BatchedNeuralNetOutput{
+            std::move(batched_input.thread_ids),
+            policies.detach(),
+            values.detach()
+        });
+    }
+
+    for (std::thread &thread : threads) {
+        thread.join();
+    }
+
+    _neural_net_input_queue.clear();
+    _batched_neural_net_input_queue.clear();
+    _batched_neural_net_output_queue.clear();
+    _search_threads.clear();
+
+    std::vector<int> actions;
+    std::vector<int> visit_counts;
+    std::vector<float> mean_action_values;
+
+    std::vector<unsigned> &root_children = _search_tree.front().children;
+    actions.reserve(root_children.size());
+    visit_counts.reserve(root_children.size());
+    mean_action_values.reserve(root_children.size());
+
+    for (unsigned child_index : root_children) {
+        SearchNode &child = _search_tree[child_index];
+        actions.push_back(child.previous_action);
+        visit_counts.push_back(child.visit_count);
+        mean_action_values.push_back(child.mean_action_value);
+    }
+
+    return py::dict(
+        "actions"_a = actions,
+        "visit_counts"_a = visit_counts,
+        "mean_action_values"_a = mean_action_values
+    );
 }
 
 namespace {
@@ -309,4 +390,102 @@ void othello::MCTS::set_dirichlet_alpha(float value) noexcept {
         value = std::max(0.0f, value);
     }
     _dirichlet_alpha = value;
+}
+
+void othello::MCTS::_neural_net_input_thread() {
+    int max_batch_size = std::min(_batch_size, _num_threads);
+
+    std::vector<int> thread_ids;
+    thread_ids.reserve(max_batch_size);
+
+    std::vector<float> features;
+    features.reserve(max_batch_size * 3 * 8 * 8);
+
+    int num_running_threads = _num_threads;
+    int actual_batch_size = max_batch_size;
+
+    torch::Device device(_torch_device);
+
+    while (true) {
+        NeuralNetInput input = _neural_net_input_queue.pop();
+        if (input.features.empty()) {
+            // An empty feature vector signals the end of the search thread.
+            if (--num_running_threads == 0) {
+                break;
+            }
+            actual_batch_size = std::min(_batch_size, num_running_threads);
+        } else {
+            thread_ids.push_back(input.thread_id);
+            features.insert(
+                features.end(), input.features.begin(), input.features.end()
+            );
+        }
+
+        if (static_cast<int>(thread_ids.size()) < actual_batch_size) {
+            continue;
+        }
+
+        // Some compiled models expect fix-sized input tensors, so we always pad
+        // the input to the maximum batch size.
+        thread_ids.resize(max_batch_size, -1);
+        features.resize(max_batch_size * 3 * 8 * 8, 0.0f);
+
+        torch::Tensor feature_tensor = torch::from_blob(
+            features.data(), {max_batch_size, 3, 8, 8}, torch::kFloat32
+        );
+        feature_tensor = feature_tensor.to(
+            device,          // device
+            torch::kFloat32, // dtype
+            false,           // non_blocking
+            true             // copy
+        );
+        _batched_neural_net_input_queue.push(
+            BatchedNeuralNetInput{thread_ids, std::move(feature_tensor)}
+        );
+
+        thread_ids.clear();
+        features.clear();
+    }
+
+    // Put an empty batch to signal the end of the thread.
+    _batched_neural_net_input_queue.push(
+        BatchedNeuralNetInput{{}, torch::empty({0, 3, 8, 8}, torch::kFloat32)}
+    );
+}
+
+void othello::MCTS::_neural_net_output_thread() {
+    while (true) {
+        BatchedNeuralNetOutput batched_output =
+            _batched_neural_net_output_queue.pop();
+        if (batched_output.thread_ids.empty()) {
+            // An empty thread ID vector indicates that all search threads have
+            // finished.
+            break;
+        }
+
+        torch::Tensor policies =
+            batched_output.policies.to(torch::kCPU, torch::kFloat32)
+                .contiguous();
+        torch::Tensor values =
+            batched_output.values.to(torch::kCPU, torch::kFloat32).contiguous();
+        float *policy_data = policies.data_ptr<float>();
+        float *value_data = values.data_ptr<float>();
+
+        for (int thread_id : batched_output.thread_ids) {
+            if (thread_id < 0) {
+                // Skip dummy threads for padding.
+                continue;
+            }
+
+            float *policy_data_end = policy_data + 65;
+            std::vector<float> policy(policy_data, policy_data_end);
+            policy_data = policy_data_end;
+
+            float value = *value_data++;
+
+            _search_threads[thread_id]->_neural_net_output_queue.push(
+                NeuralNetOutput{std::move(policy), value}
+            );
+        }
+    }
 }

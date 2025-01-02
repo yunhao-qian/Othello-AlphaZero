@@ -4,9 +4,14 @@
 #ifndef OTHELLO_MCTS_MCTS_H
 #define OTHELLO_MCTS_MCTS_H
 
+#include <memory>
 #include <mutex>
 #include <random>
+#include <string>
 #include <vector>
+
+#include <pybind11/pybind11.h>
+#include <torch/torch.h>
 
 #include "position.h"
 #include "queue.h"
@@ -45,7 +50,6 @@ public:
 ///
 struct NeuralNetInput {
     int thread_id;
-    bool is_finished;
     std::vector<float> features;
 };
 
@@ -54,6 +58,21 @@ struct NeuralNetInput {
 struct NeuralNetOutput {
     std::vector<float> policy;
     float value;
+};
+
+/// @brief Batched input from the neural network input thread to the main
+///     thread.
+struct BatchedNeuralNetInput {
+    std::vector<int> thread_ids;
+    torch::Tensor features;
+};
+
+/// @brief Batched output from the main thread to the neural network output
+///     thread.
+struct BatchedNeuralNetOutput {
+    std::vector<int> thread_ids;
+    torch::Tensor policies;
+    torch::Tensor values;
 };
 
 class MCTS;
@@ -69,6 +88,8 @@ public:
     void run();
 
 private:
+    friend class MCTS;
+
     /// @brief Runs a single simulation.
     ///
     void _simulate();
@@ -91,6 +112,7 @@ private:
 class MCTS {
 public:
     MCTS(
+        const std::string &torch_device = "cpu",
         int num_simulations = 1600,
         int batch_size = 16,
         int num_threads = 16,
@@ -108,10 +130,25 @@ public:
     /// @return Position of the root node.
     Position root_position() const;
 
+    /// @brief  Performs a Monte Carlo Tree Search using the given neural
+    ///     network.
+    /// @param neural_net PyTorch neural network.
+    /// @return Python dictionary of `actions`, `visit_counts`, and
+    ///     `mean_action_values`.
+    pybind11::object search(pybind11::object neural_net);
+
     /// @brief Applies an action to the current position and prunes the search
     ///     tree accordingly.
     /// @param action Action to apply.
     void apply_action(int action);
+
+    std::string torch_device() const {
+        return _torch_device;
+    }
+
+    void set_torch_device(const std::string &value) {
+        _torch_device = value;
+    }
 
     int num_simulations() const noexcept {
         return _num_simulations;
@@ -152,6 +189,15 @@ public:
 private:
     friend class SearchThread;
 
+    /// @brief Entry point for the neural network input thread.
+    ///
+    void _neural_net_input_thread();
+
+    /// @brief Entry point for the neural network output thread.
+    ///
+    void _neural_net_output_thread();
+
+    std::string _torch_device;
     int _num_simulations;
     int _batch_size;
     int _num_threads;
@@ -163,6 +209,9 @@ private:
     std::mutex _search_tree_mutex;
 
     Queue<NeuralNetInput> _neural_net_input_queue;
+    Queue<BatchedNeuralNetInput> _batched_neural_net_input_queue;
+    Queue<BatchedNeuralNetOutput> _batched_neural_net_output_queue;
+    std::vector<std::unique_ptr<SearchThread>> _search_threads;
 };
 
 } // namespace othello

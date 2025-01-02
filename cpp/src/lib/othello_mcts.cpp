@@ -1,20 +1,19 @@
 /// @file othello_mcts.cpp
 /// @brief Definition of Python bindings.
 
-#include <nanobind/stl/string.h>
-#include <nanobind/stl/vector.h>
+#include <pybind11/pybind11.h>
 
 #include "mcts.h"
 #include "position.h"
 
-namespace nb = nanobind;
-using namespace nb::literals;
+namespace py = pybind11;
+using namespace py::literals;
 
-NB_MODULE(_othello_mcts_impl, m) {
+PYBIND11_MODULE(_othello_mcts_impl, m) {
     using othello::MCTS;
     using othello::Position;
 
-    nb::class_<Position>(m, "Position")
+    py::class_<Position>(m, "Position")
         .def_static("initial_position", &Position::initial_position)
         .def("legal_actions", &Position::legal_actions)
         .def("apply_action", &Position::apply_action, "action"_a)
@@ -26,9 +25,10 @@ NB_MODULE(_othello_mcts_impl, m) {
         .def("is_legal_move", &Position::is_legal_move, "row"_a, "col"_a)
         .def("__str__", &Position::to_string);
 
-    nb::class_<MCTS>(m, "MCTS")
+    py::class_<MCTS>(m, "MCTS")
         .def(
-            nb::init<int, int, int, float, float, float>(),
+            py::init<const std::string &, int, int, int, float, float, float>(),
+            "torch_device"_a = "cpu",
             "num_simulations"_a = 1600,
             "batch_size"_a = 16,
             "num_threads"_a = 16,
@@ -38,33 +38,39 @@ NB_MODULE(_othello_mcts_impl, m) {
         )
         .def("reset_position", &MCTS::reset_position, "position"_a)
         .def("root_position", &MCTS::root_position)
+        .def("search", &MCTS::search, "neural_net"_a)
         .def("apply_action", &MCTS::apply_action, "action"_a)
-        .def_prop_rw(
+        .def_property(
+            "torch_device",
+            [](MCTS &t) { return t.torch_device(); },
+            [](MCTS &t, const std::string &value) { t.set_torch_device(value); }
+        )
+        .def_property(
             "num_simulations",
             [](MCTS &t) { return t.num_simulations(); },
             [](MCTS &t, int value) { t.set_num_simulations(value); }
         )
-        .def_prop_rw(
+        .def_property(
             "batch_size",
             [](MCTS &t) { return t.batch_size(); },
             [](MCTS &t, int value) { t.set_batch_size(value); }
         )
-        .def_prop_rw(
+        .def_property(
             "num_threads",
             [](MCTS &t) { return t.num_threads(); },
             [](MCTS &t, int value) { t.set_num_threads(value); }
         )
-        .def_prop_rw(
+        .def_property(
             "exploration_weight",
             [](MCTS &t) { return t.exploration_weight(); },
             [](MCTS &t, float value) { t.set_exploration_weight(value); }
         )
-        .def_prop_rw(
+        .def_property(
             "dirichlet_epsilon",
             [](MCTS &t) { return t.dirichlet_epsilon(); },
             [](MCTS &t, float value) { t.set_dirichlet_epsilon(value); }
         )
-        .def_prop_rw(
+        .def_property(
             "dirichlet_alpha",
             [](MCTS &t) { return t.dirichlet_alpha(); },
             [](MCTS &t, float value) { t.set_dirichlet_alpha(value); }
