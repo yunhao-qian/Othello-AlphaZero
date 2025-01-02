@@ -1,5 +1,5 @@
 # Set the minimum CMake version and policies for highest tested version.
-cmake_minimum_required(VERSION 3.15...3.28)
+cmake_minimum_required(VERSION 3.18...3.28)
 
 # Set up the project and ensure there is a working C++ compiler.
 project(othello_mcts LANGUAGES CXX)
@@ -39,6 +39,9 @@ find_package(Python 3.8
 # Import nanobind through CMake's find_package mechanism.
 find_package(nanobind CONFIG REQUIRED)
 
+find_package(Torch REQUIRED)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+
 # We are now ready to compile the actual extension module.
 nanobind_add_module(
     # Name of the extension
@@ -56,6 +59,9 @@ nanobind_add_module(
     src/lib/utility.cpp
 )
 target_include_directories(_othello_mcts_impl PRIVATE src/include)
+
+target_include_directories(_othello_mcts_impl PUBLIC ${TORCH_INCLUDE_DIRS})
+target_link_libraries(_othello_mcts_impl PUBLIC "${TORCH_LIBRARIES}")
 
 nanobind_add_stub(
     _othello_mcts_impl_stub
