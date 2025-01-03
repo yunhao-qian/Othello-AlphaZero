@@ -38,7 +38,7 @@ public:
     /// @return 1.0 if Player 1 wins, -1.0 if Player 2 wins, 0.0 if draw.
     float action_value() const noexcept;
 
-    /// @brief Creates a feature vector of the position for neural networks.
+    /// @brief Creates a feature vector of the position for neural nets.
     /// @return Flat vector of 3x8x8 features.
     std::vector<float> to_features() const;
 

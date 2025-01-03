@@ -60,7 +60,7 @@ void othello::SearchThread::_simulate() {
         visit_count_increment = 1;
         total_action_value_offset = 0.0f;
 
-        // If the game is over, we do not need neural network evaluation.
+        // If the game is over, we do not need neural net evaluation.
         action_value = leaf_position.action_value();
     } else {
         visit_count_increment = 0;
@@ -219,7 +219,7 @@ py::object othello::MCTS::search(py::object neural_net) {
             _batched_neural_net_input_queue.pop();
         if (batched_input.thread_ids.empty()) {
             // All search threads have finished. Propagate the signal to the
-            // neural network output thread.
+            // neural net output thread.
             _batched_neural_net_output_queue.push(BatchedNeuralNetOutput{
                 {},
                 torch::empty({0, 65}, torch::kFloat32),

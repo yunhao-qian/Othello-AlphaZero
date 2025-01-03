@@ -46,29 +46,29 @@ public:
     std::vector<unsigned> children;
 };
 
-/// @brief Input from search threads to the neural network input thread.
+/// @brief Input from search threads to the neural net input thread.
 ///
 struct NeuralNetInput {
     int thread_id;
     std::vector<float> features;
 };
 
-/// @brief Output from the neural network output thread to a search thread.
+/// @brief Output from the neural net output thread to a search thread.
 ///
 struct NeuralNetOutput {
     std::vector<float> policy;
     float value;
 };
 
-/// @brief Batched input from the neural network input thread to the main
+/// @brief Batched input from the neural net input thread to the main
 ///     thread.
 struct BatchedNeuralNetInput {
     std::vector<int> thread_ids;
     torch::Tensor features;
 };
 
-/// @brief Batched output from the main thread to the neural network output
-///     thread.
+/// @brief Batched output from the main thread to the neural net output thread.
+///
 struct BatchedNeuralNetOutput {
     std::vector<int> thread_ids;
     torch::Tensor policies;
@@ -130,9 +130,8 @@ public:
     /// @return Position of the root node.
     Position root_position() const;
 
-    /// @brief  Performs a Monte Carlo Tree Search using the given neural
-    ///     network.
-    /// @param neural_net PyTorch neural network.
+    /// @brief  Performs a Monte Carlo Tree Search using the given neural net.
+    /// @param neural_net PyTorch neural net.
     /// @return Python dictionary of `actions`, `visit_counts`, and
     ///     `mean_action_values`.
     pybind11::object search(pybind11::object neural_net);
@@ -189,11 +188,11 @@ public:
 private:
     friend class SearchThread;
 
-    /// @brief Entry point for the neural network input thread.
+    /// @brief Entry point for the neural net input thread.
     ///
     void _neural_net_input_thread();
 
-    /// @brief Entry point for the neural network output thread.
+    /// @brief Entry point for the neural net output thread.
     ///
     void _neural_net_output_thread();
 
