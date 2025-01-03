@@ -3,8 +3,8 @@ requires = ["scikit-build-core", "pybind11"]
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "othello_mcts"
-version = "0.1.0"
+name = "othello-mcts"
+version = "2025.0.0"
 dependencies = []
 requires-python = ">=3.10"
 authors = [{ name = "Yunhao Qian", email = "yunhaoq@seas.upenn.edu" }]

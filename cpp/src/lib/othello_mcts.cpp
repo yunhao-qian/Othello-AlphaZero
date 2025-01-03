@@ -2,6 +2,7 @@
 /// @brief Definition of Python bindings.
 
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 #include "mcts.h"
 #include "position.h"

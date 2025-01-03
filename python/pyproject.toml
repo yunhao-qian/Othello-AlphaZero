@@ -1,3 +1,19 @@
 [build-system]
-requires = ["setuptools", "cython"]
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "othello-alphazero"
+version = "2025.0.0"
+dependencies = []
+requires-python = ">=3.10"
+authors = [{ name = "Yunhao Qian", email = "yunhaoq@seas.upenn.edu" }]
+description = "AlphaZero implementation for Othello."
+readme = "README.md"
+classifiers = ["License :: OSI Approved :: MIT License"]
+
+[project.urls]
+Homepage = "https://github.com/yunhao-qian/Othello-AlphaZero"
+
+[project.scripts]
+othello-train = "othello_alphazero.train:main"

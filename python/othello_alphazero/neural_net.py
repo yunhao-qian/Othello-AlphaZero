@@ -1,9 +1,4 @@
-"""Neural network proposed in the AlphaGo Zero paper, extended to support general board
-games."""
-
-import json
-import os
-from pathlib import Path
+"""Neural network proposed in the AlphaGo Zero paper adapted for Othello."""
 
 import torch
 from torch import nn
@@ -20,6 +15,12 @@ class ConvBlock(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass.
+
+        :param x: Input tensor of shape `(batch_size, in_channels, height, width)`.
+        :return: Output tensor of shape `(batch_size, out_channels, height, width)`.
+        """
+
         x = self.conv(x)
         x = self.norm(x)
         x = self.relu(x)
@@ -45,6 +46,12 @@ class ResidualBlock(nn.Module):
         self.relu2 = nn.ReLU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass.
+
+        :param x: Input tensor of shape `(batch_size, num_channels, height, width)`.
+        :return: Output tensor of shape `(batch_size, num_channels, height, width)`.
+        """
+
         skip = x
         x = self.conv1(x)
         x = self.norm1(x)
@@ -59,16 +66,22 @@ class ResidualBlock(nn.Module):
 class PolicyHead(nn.Module):
     """Policy head predicting the probability distribution of actions."""
 
-    def __init__(self, in_channels: int, num_grids: int, num_actions: int) -> None:
+    def __init__(self, in_channels: int, num_squares: int, num_actions: int) -> None:
         super().__init__()
 
         self.conv = nn.Conv2d(in_channels, 2, 1)
         self.norm = nn.BatchNorm2d(2)
         self.relu = nn.ReLU()
-        self.linear = nn.Linear(2 * num_grids, num_actions)
+        self.linear = nn.Linear(2 * num_squares, num_actions)
         self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass.
+
+        :param x: Input tensor of shape `(batch_size, in_channels, height, width)`.
+        :return: Output tensor of shape `(batch_size, num_actions)`.
+        """
+
         x = self.conv(x)
         x = self.norm(x)
         x = self.relu(x)
@@ -81,18 +94,24 @@ class PolicyHead(nn.Module):
 class ValueHead(nn.Module):
     """Value head predicting the action-value of the current position."""
 
-    def __init__(self, in_channels: int, num_grids: int, hidden_size: int) -> None:
+    def __init__(self, in_channels: int, num_squares: int, hidden_size: int) -> None:
         super().__init__()
 
         self.conv = nn.Conv2d(in_channels, 1, 1)
         self.norm = nn.BatchNorm2d(1)
         self.relu1 = nn.ReLU()
-        self.linear1 = nn.Linear(num_grids, hidden_size)
+        self.linear1 = nn.Linear(num_squares, hidden_size)
         self.relu2 = nn.ReLU()
         self.linear2 = nn.Linear(hidden_size, 1)
         self.tanh = nn.Tanh()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass.
+
+        :param x: Input tensor of shape `(batch_size, in_channels, height, width)`.
+        :return: Output tensor of shape `(batch_size,)`.
+        """
+
         x = self.conv(x)
         x = self.norm(x)
         x = self.relu1(x)
@@ -105,14 +124,13 @@ class ValueHead(nn.Module):
         return x
 
 
-class AlphaZeroResNet(nn.Module):
-    """Neural network proposed in the AlphaGo Zero paper, extended to support general
-    board games."""
+class AlphaZeroNet(nn.Module):
+    """Neural network proposed in the AlphaGo Zero paper adapted for Othello."""
 
     def __init__(
         self,
         in_channels: int,
-        num_grids: int,
+        num_squares: int,
         num_actions: int,
         feature_channels: int = 256,
         num_residual_blocks: int = 19,
@@ -124,31 +142,22 @@ class AlphaZeroResNet(nn.Module):
         self.residual_blocks = nn.Sequential(
             *(ResidualBlock(feature_channels) for _ in range(num_residual_blocks))
         )
-        self.policy_head = PolicyHead(feature_channels, num_grids, num_actions)
-        self.value_head = ValueHead(feature_channels, num_grids, value_head_hidden_size)
+        self.policy_head = PolicyHead(feature_channels, num_squares, num_actions)
+        self.value_head = ValueHead(
+            feature_channels, num_squares, value_head_hidden_size
+        )
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass.
+
+        :param x: Input tensor of shape `(batch_size, in_channels, height, width)`.
+        :return: Tuple of two output tensors:
+            - Policy tensor of shape `(batch_size, num_actions)`.
+            - Value tensor of shape `(batch_size,)`.
+        """
+
         x = self.conv_block(x)
         x = self.residual_blocks(x)
         policy = self.policy_head(x)
         value = self.value_head(x)
         return policy, value
-
-    @staticmethod
-    def from_checkpoint(checkpoint_dir: str | os.PathLike) -> "AlphaZeroResNet":
-        """Load the neural network from a checkpoint directory."""
-
-        checkpoint_dir = Path(checkpoint_dir)
-        if not checkpoint_dir.is_dir():
-            raise ValueError(f"'{checkpoint_dir}; is not a directory")
-
-        with (checkpoint_dir / "config.json").open() as config_file:
-            config = json.load(config_file)
-        net = AlphaZeroResNet(**config)
-
-        checkpoint = torch.load(
-            checkpoint_dir / "model.pth", map_location="cpu", weights_only=True
-        )
-        net.load_state_dict(checkpoint)
-
-        return net
