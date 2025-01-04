@@ -25,12 +25,12 @@ class MCTS:
     def __init__(
         self,
         torch_device: str = "cpu",
-        num_simulations: int = 1600,
+        num_simulations: int = 800,
         batch_size: int = 16,
         num_threads: int = 16,
         exploration_weight: float = 1.0,
         dirichlet_epsilon: float = 0.25,
-        dirichlet_alpha: float = 0.03,
+        dirichlet_alpha: float = 0.3,
     ) -> None: ...
     def reset_position(self, position: Position) -> None: ...
     def root_position(self) -> Position: ...

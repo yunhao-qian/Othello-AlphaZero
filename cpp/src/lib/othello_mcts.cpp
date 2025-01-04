@@ -30,12 +30,12 @@ PYBIND11_MODULE(_othello_mcts_impl, m) {
         .def(
             py::init<const std::string &, int, int, int, float, float, float>(),
             "torch_device"_a = "cpu",
-            "num_simulations"_a = 1600,
+            "num_simulations"_a = 800,
             "batch_size"_a = 16,
             "num_threads"_a = 16,
             "exploration_weight"_a = 1.0f,
             "dirichlet_epsilon"_a = 0.25f,
-            "dirichlet_alpha"_a = 0.03f
+            "dirichlet_alpha"_a = 0.3f
         )
         .def("reset_position", &MCTS::reset_position, "position"_a)
         .def("root_position", &MCTS::root_position)

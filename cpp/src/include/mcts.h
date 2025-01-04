@@ -113,12 +113,12 @@ class MCTS {
 public:
     MCTS(
         const std::string &torch_device = "cpu",
-        int num_simulations = 1600,
+        int num_simulations = 800,
         int batch_size = 16,
         int num_threads = 16,
         float exploration_weight = 1.0f,
         float dirichlet_epsilon = 0.25f,
-        float dirichlet_alpha = 0.03f
+        float dirichlet_alpha = 0.3f
     );
 
     /// @brief Clears the search tree and resets the root node to the given

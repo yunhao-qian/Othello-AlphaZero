@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from othello_mcts import MCTS, Position
 from torch import nn
-from torch.optim import Adam
+from torch.optim import SGD
 from torch.optim.lr_scheduler import MultiStepLR
 from tqdm.auto import tqdm, trange
 
@@ -75,9 +75,15 @@ def main() -> None:
     )
     parser.add_argument(
         "--optimizer-lr",
-        default=0.001,
+        default=0.01,
         type=float,
         help="learning rate for the optimizer (default: 0.001)",
+    )
+    parser.add_argument(
+        "--optimizer-momentum",
+        default=0.9,
+        type=float,
+        help="momentum for the optimizer (default: 0.9)",
     )
     parser.add_argument(
         "--lr-scheduler-milestones",
@@ -99,9 +105,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--mcts-simulations",
-        default=1600,
+        default=800,
         type=int,
-        help="number of simulations per action in MCTS (default: 1600)",
+        help="number of simulations per action in MCTS (default: 800)",
     )
     parser.add_argument(
         "--mcts-batch-size",
@@ -129,9 +135,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--mcts-dirichlet-alpha",
-        default=0.03,
+        default=0.3,
         type=float,
-        help="alpha for Dirichlet noises in MCTS (default: 0.03)",
+        help="alpha for Dirichlet noises in MCTS (default: 0.3)",
     )
     parser.add_argument(
         "--compile-neural-net",
@@ -186,7 +192,7 @@ def main() -> None:
                 "num_residual_blocks": args.neural_net_residual_blocks,
                 "value_head_hidden_size": args.neural_net_value_head_hidden_size,
             },
-            "optimizer": {"lr": args.optimizer_lr},
+            "optimizer": {"lr": args.optimizer_lr, "momentum": args.optimizer_momentum},
             "lr_scheduler": {
                 "milestones": args.lr_scheduler_milestones,
                 "gamma": args.lr_scheduler_gamma,
@@ -196,7 +202,9 @@ def main() -> None:
         neural_net = AlphaZeroNet(**config["neural_net"]).to(args.device)
         if args.compile_neural_net:
             neural_net = torch.compile(neural_net, fullgraph=True, mode="max-autotune")
-        optimizer = Adam(neural_net.parameters(), **config["optimizer"])
+        # Adam does not work well with this kind of tasks:
+        # https://github.com/leela-zero/leela-zero/issues/78#issuecomment-353651540
+        optimizer = SGD(neural_net.parameters(), **config["optimizer"])
         lr_scheduler = MultiStepLR(optimizer, **config["lr_scheduler"])
 
     print(f"Configuration:\n{json.dumps(config, indent=4)}")
@@ -231,7 +239,7 @@ def main() -> None:
 
 def _resume_from_checkpoint(
     args: Namespace,
-) -> tuple[int, dict[str, Any], MCTS, AlphaZeroNet, Adam, MultiStepLR]:
+) -> tuple[int, dict[str, Any], MCTS, AlphaZeroNet, SGD, MultiStepLR]:
     """Loads components from a checkpoint directory."""
 
     with (args.from_checkpoint / "config.json").open() as config_file:
@@ -254,7 +262,7 @@ def _resume_from_checkpoint(
     if args.compile_neural_net:
         neural_net = torch.compile(neural_net, fullgraph=True, mode="max-autotune")
 
-    optimizer = Adam(neural_net.parameters(), **config["optimizer"])
+    optimizer = SGD(neural_net.parameters(), **config["optimizer"])
     optimizer.load_state_dict(
         torch.load(
             args.from_checkpoint / "optimizer.pth",
@@ -315,7 +323,7 @@ class _AlphaZeroDataset(torch.utils.data.Dataset):
 
 
 def _run_iteration(
-    mcts: MCTS, neural_net: AlphaZeroNet, optimizer: Adam, args: Namespace
+    mcts: MCTS, neural_net: AlphaZeroNet, optimizer: SGD, args: Namespace
 ) -> dict[str, float]:
     """Runs a single iteration of self-play and training."""
 
@@ -380,7 +388,7 @@ def _self_play(
 
 def _train(
     neural_net: AlphaZeroNet,
-    optimizer: Adam,
+    optimizer: SGD,
     dataset: _AlphaZeroDataset,
     args: Namespace,
 ) -> dict[str, float]:
@@ -398,9 +406,10 @@ def _train(
             batch_size=args.training_batch_size,
             shuffle=True,
             num_workers=args.training_dataloader_workers,
+            drop_last=True,
         ),
         desc="Training",
-        total=math.ceil(len(dataset) / args.training_batch_size),
+        total=len(dataset) // args.training_batch_size,
     )
     for features, target_policies, target_values in progress_bar:
         features = features.to(args.device, torch.float32)
