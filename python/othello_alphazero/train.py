@@ -316,19 +316,17 @@ class _AlphaZeroDataset(torch.utils.data.Dataset):
         augmentation //= 4
         swap_players = augmentation % 2 == 1
 
-        action_new_to_old = np.arange(64).reshape((8, 8))
+        policy_indices = np.arange(64).reshape((8, 8))
         if horizontal_flip:
             features = np.flip(features, axis=2)
-            action_new_to_old = np.flip(action_new_to_old, axis=1)
+            policy_indices = np.flip(policy_indices, axis=1)
         for _ in range(rotation):
             features = np.rot90(features, axes=(1, 2))
-            action_new_to_old = np.rot90(action_new_to_old)
+            policy_indices = np.rot90(policy_indices)
         if swap_players:
             features = np.stack((features[1], features[0], 1.0 - features[2]))
-        action_new_to_old = np.append(action_new_to_old.flatten(), 64)
-        action_old_to_new = np.empty_like(action_new_to_old)
-        action_old_to_new[action_new_to_old] = np.arange(65)
-        policy = action_old_to_new[policy]
+        policy_indices = np.append(policy_indices.flatten(), 64)
+        policy = policy[policy_indices]
 
         return features.copy(), policy, value
 
