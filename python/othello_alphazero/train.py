@@ -145,6 +145,11 @@ def main() -> None:
         help="compile the neural net (default: False)",
     )
     parser.add_argument(
+        "--compile-neural-net-mode",
+        default="max-autotune",
+        help="compilation mode for the neural net (default: max-autotune)",
+    )
+    parser.add_argument(
         "--training-batch-size",
         default=16,
         type=int,
@@ -201,7 +206,9 @@ def main() -> None:
         mcts = MCTS(**config["mcts"])
         neural_net = AlphaZeroNet(**config["neural_net"]).to(args.device)
         if args.compile_neural_net:
-            neural_net = torch.compile(neural_net, fullgraph=True, mode="max-autotune")
+            neural_net = torch.compile(
+                neural_net, fullgraph=True, mode=args.compile_neural_net_mode
+            )
         # Adam does not work well with this kind of tasks:
         # https://github.com/leela-zero/leela-zero/issues/78#issuecomment-353651540
         optimizer = SGD(neural_net.parameters(), **config["optimizer"])
@@ -260,7 +267,9 @@ def _resume_from_checkpoint(
         )
     )
     if args.compile_neural_net:
-        neural_net = torch.compile(neural_net, fullgraph=True, mode="max-autotune")
+        neural_net = torch.compile(
+            neural_net, fullgraph=True, mode=args.compile_neural_net_mode
+        )
 
     optimizer = SGD(neural_net.parameters(), **config["optimizer"])
     optimizer.load_state_dict(
@@ -307,17 +316,19 @@ class _AlphaZeroDataset(torch.utils.data.Dataset):
         augmentation //= 4
         swap_players = augmentation % 2 == 1
 
-        policy_indices = np.arange(64).reshape((8, 8))
+        action_new_to_old = np.arange(64).reshape((8, 8))
         if horizontal_flip:
             features = np.flip(features, axis=2)
-            policy_indices = np.flip(policy_indices, axis=1)
+            action_new_to_old = np.flip(action_new_to_old, axis=1)
         for _ in range(rotation):
             features = np.rot90(features, axes=(1, 2))
-            policy_indices = np.rot90(policy_indices)
+            action_new_to_old = np.rot90(action_new_to_old)
         if swap_players:
             features = np.stack((features[1], features[0], 1.0 - features[2]))
-        policy_indices = np.append(policy_indices.flatten(), 64)
-        policy = policy[policy_indices]
+        action_new_to_old = np.append(action_new_to_old.flatten(), 64)
+        action_old_to_new = np.empty_like(action_new_to_old)
+        action_old_to_new[action_new_to_old] = np.arange(65)
+        policy = action_old_to_new[policy]
 
         return features.copy(), policy, value
 
