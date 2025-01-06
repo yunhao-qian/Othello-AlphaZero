@@ -203,6 +203,8 @@ std::string othello::Position::to_string() const {
         }
         result.push_back('\n');
     }
+    // Remove the last newline character.
+    result.pop_back();
     return result;
 }
 

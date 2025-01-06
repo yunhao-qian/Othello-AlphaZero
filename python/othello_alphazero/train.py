@@ -2,7 +2,6 @@
 
 import itertools
 import json
-import math
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import Any
