@@ -2,6 +2,8 @@
 
 import json
 import os
+import subprocess
+import tempfile
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
@@ -21,13 +23,13 @@ def main() -> None:
     parser.add_argument(
         "--player1",
         default="human",
-        choices=["human", "random", "greedy", "alphazero"],
+        choices=["human", "random", "greedy", "alphazero", "egaroucid"],
         help="kind of player for the Black player (default: human)",
     )
     parser.add_argument(
         "--player2",
         default="human",
-        choices=["human", "random", "greedy", "alphazero"],
+        choices=["human", "random", "greedy", "alphazero", "egaroucid"],
         help="kind of player for the White player (default: human)",
     )
     parser.add_argument(
@@ -92,6 +94,36 @@ def main() -> None:
         "--alphazero-compile-neural-net-mode",
         default="max-autotune",
         help="compilation mode for the AlphaZero player (default: max-autotune)",
+    )
+    parser.add_argument(
+        "--egaroucid-exe",
+        type=Path,
+        default=None,
+        help="path to the Egaroucid executable",
+    )
+    parser.add_argument(
+        "--egaroucid-level",
+        type=int,
+        default=21,
+        help="level for the Egaroucid player (default: 21)",
+    )
+    parser.add_argument(
+        "--egaroucid-level-player1",
+        type=int,
+        default=None,
+        help="override egaroucid-level for player 1",
+    )
+    parser.add_argument(
+        "--egaroucid-level-player2",
+        type=int,
+        default=None,
+        help="override egaroucid-level for player 2",
+    )
+    parser.add_argument(
+        "--egaroucid-threads",
+        type=int,
+        default=24,
+        help="number of threads for the Egaroucid player (default: 24)",
     )
 
     args = parser.parse_args()
@@ -159,38 +191,53 @@ def _create_player(args: Namespace, player: int) -> Player:
         return RandomPlayer()
     if player_kind == "greedy":
         return GreedyPlayer()
+    if player_kind == "alphazero":
+        device = args.alphazero_device
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # AlphaZero player
+        num_simulations = (
+            args.alphazero_simulations_player1
+            if player == 1
+            else args.alphazero_simulations_player2
+        )
+        if num_simulations is None:
+            num_simulations = args.alphazero_simulations
 
-    device = args.alphazero_device
-    if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        checkpoint_dir = (
+            args.alphazero_checkpoint_player1
+            if player == 1
+            else args.alphazero_checkpoint_player2
+        )
+        if checkpoint_dir is None:
+            checkpoint_dir = args.alphazero_checkpoint
+        if checkpoint_dir is None:
+            raise ValueError("AlphaZero checkpoint directory not specified")
 
-    num_simulations = (
-        args.alphazero_simulations_player1
-        if player == 1
-        else args.alphazero_simulations_player2
-    )
-    if num_simulations is None:
-        num_simulations = args.alphazero_simulations
+        return AlphaZeroPlayer(
+            device=device,
+            num_simulations=num_simulations,
+            batch_size=args.alphazero_batch_size,
+            num_threads=args.alphazero_threads,
+            checkpoint_dir=checkpoint_dir,
+            compile_neural_net=args.alphazero_compile_neural_net,
+            compile_neural_net_mode=args.alphazero_compile_neural_net_mode,
+        )
+    if player_kind == "egaroucid":
+        if args.egaroucid_exe is None:
+            raise ValueError("Egaroucid executable not specified")
 
-    checkpoint_dir = (
-        args.alphazero_checkpoint_player1
-        if player == 1
-        else args.alphazero_checkpoint_player2
-    )
-    if checkpoint_dir is None:
-        checkpoint_dir = args.alphazero_checkpoint
+        level = (
+            args.egaroucid_level_player1
+            if player == 1
+            else args.egaroucid_level_player2
+        )
+        if level is None:
+            level = args.egaroucid_level
 
-    return AlphaZeroPlayer(
-        device=device,
-        num_simulations=num_simulations,
-        batch_size=args.alphazero_batch_size,
-        num_threads=args.alphazero_threads,
-        checkpoint_dir=checkpoint_dir,
-        compile_neural_net=args.alphazero_compile_neural_net,
-        compile_neural_net_mode=args.alphazero_compile_neural_net_mode,
-    )
+        return EgaroucidPlayer(args.egaroucid_exe, level, args.egaroucid_threads)
+
+    raise ValueError(f"Invalid player kind: {player_kind}")
 
 
 class HumanPlayer(Player):
@@ -309,6 +356,65 @@ class AlphaZeroPlayer(Player):
 
     def apply_action(self, action: int) -> None:
         self.mcts.apply_action(action)
+
+
+class EgaroucidPlayer(Player):
+    """Player that calls the Egaroucid application to select actions."""
+
+    def __init__(
+        self, egaroucid_exe: str | os.PathLike, level: int, num_threads: int
+    ) -> None:
+        self.egaroucid_exe = str(egaroucid_exe)
+        self.level = level
+        self.num_threads = num_threads
+
+        self.position = Position.initial_position()
+
+    def get_action(self) -> int:
+        legal_actions = self.position.legal_actions()
+        if len(legal_actions) == 1:
+            return legal_actions[0]
+
+        with tempfile.NamedTemporaryFile("w+") as problem_file:
+            for row in range(8):
+                for col in range(8):
+                    status = self.position(row, col)
+                    if status == 1:
+                        problem_file.write("B")
+                    elif status == 2:
+                        problem_file.write("W")
+                    else:
+                        problem_file.write(".")
+            if self.position.player() == 1:
+                problem_file.write("B")
+            else:
+                problem_file.write("W")
+            problem_file.write("\n")
+            problem_file.flush()
+
+            output = subprocess.run(
+                [
+                    self.egaroucid_exe,
+                    "-level",
+                    str(self.level),
+                    "-nobook",
+                    "-threads",
+                    str(self.num_threads),
+                    "-solve",
+                    problem_file.name,
+                ],
+                capture_output=True,
+                check=True,
+                text=True,
+            ).stdout
+
+        # Line format: | <level> | <depth> | <move> | <score> | ...
+        line = output.splitlines()[1]
+        action_name = line.split("|")[3].strip()
+        return _ACTION_NAMES.index(action_name)
+
+    def apply_action(self, action: int) -> None:
+        self.position = self.position.apply_action(action)
 
 
 def _get_action_names() -> list[str]:
