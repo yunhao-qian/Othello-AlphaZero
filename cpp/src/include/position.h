@@ -49,6 +49,12 @@ public:
     }
 
     /// @brief Returns the status of a square.
+    /// @param index Flat index of the square.
+    /// @return 1 if black disc, 2 if white disc, 0 if empty, -1 if out of
+    ///     bounds.
+    int operator()(int index) const noexcept;
+
+    /// @brief Returns the status of a square.
     /// @param row Row of the square.
     /// @param col Column of the square.
     /// @return 1 if black disc, 2 if white disc, 0 if empty, -1 if out of
@@ -56,10 +62,29 @@ public:
     int operator()(int row, int col) const noexcept;
 
     /// @brief Returns whether the given square is a legal move.
+    /// @param index Flat index of the square.
+    /// @return True if the square is a legal move, false otherwise.
+    bool is_legal_move(int index) const noexcept;
+
+    /// @brief Returns whether the given square is a legal move.
     /// @param row Row of the square.
     /// @param col Column of the square.
     /// @return True if the square is a legal move, false otherwise.
     bool is_legal_move(int row, int col) const noexcept;
+
+    /// @brief Returns the number of discs of Black.
+    /// @return Number of discs of Black.
+    int num_p1_discs() const noexcept;
+
+    /// @brief Returns the number of discs of White.
+    /// @return Number of discs of White.
+    int num_p2_discs() const noexcept;
+
+    /// @brief Returns the number of discs flipped by a move.
+    /// @param action Action to apply.
+    /// @return Number of discs flipped by the move, or 0 if the action is a
+    ///     pass or illegal.
+    int num_flips(int action) const noexcept;
 
     /// @brief Creates a string representation of the position.
     /// @return String representation.

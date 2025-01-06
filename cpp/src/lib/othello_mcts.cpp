@@ -22,8 +22,31 @@ PYBIND11_MODULE(_othello_mcts_impl, m) {
         .def("action_value", &Position::action_value)
         .def("to_features", &Position::to_features)
         .def("player", &Position::player)
-        .def("__call__", &Position::operator(), "row"_a, "col"_a)
-        .def("is_legal_move", &Position::is_legal_move, "row"_a, "col"_a)
+        .def(
+            "__call__",
+            py::overload_cast<int>(&Position::operator(), py::const_),
+            "index"_a
+        )
+        .def(
+            "__call__",
+            py::overload_cast<int, int>(&Position::operator(), py::const_),
+            "row"_a,
+            "col"_a
+        )
+        .def(
+            "is_legal_move",
+            py::overload_cast<int>(&Position::is_legal_move, py::const_),
+            "index"_a
+        )
+        .def(
+            "is_legal_move",
+            py::overload_cast<int, int>(&Position::is_legal_move, py::const_),
+            "row"_a,
+            "col"_a
+        )
+        .def("num_p1_discs", &Position::num_p1_discs)
+        .def("num_p2_discs", &Position::num_p2_discs)
+        .def("num_flips", &Position::num_flips, "action"_a)
         .def("__str__", &Position::to_string);
 
     py::class_<MCTS>(m, "MCTS")

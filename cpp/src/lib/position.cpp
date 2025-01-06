@@ -155,11 +155,10 @@ std::vector<float> othello::Position::to_features() const {
     return features;
 }
 
-int othello::Position::operator()(int row, int col) const noexcept {
-    if (!(0 <= row && row < 8 && 0 <= col && col < 8)) {
+int othello::Position::operator()(int index) const noexcept {
+    if (!(0 <= index && index < 64)) {
         return -1;
     }
-    int index = row * 8 + col;
     std::uint64_t square_mask = 1ULL << (63 - index);
     if ((_p1_discs & square_mask) != 0) {
         return 1;
@@ -170,10 +169,55 @@ int othello::Position::operator()(int row, int col) const noexcept {
     return 0;
 }
 
-bool othello::Position::is_legal_move(int row, int col) const noexcept {
-    int index = row * 8 + col;
+int othello::Position::operator()(int row, int col) const noexcept {
+    if (!(0 <= row && row < 8 && 0 <= col && col < 8)) {
+        return -1;
+    }
+    return (*this)(row * 8 + col);
+}
+
+bool othello::Position::is_legal_move(int index) const noexcept {
+    if (!(0 <= index && index < 64)) {
+        return false;
+    }
     std::uint64_t move_mask = 1ULL << (63 - index);
     return (_legal_moves & move_mask) != 0;
+}
+
+bool othello::Position::is_legal_move(int row, int col) const noexcept {
+    if (!(0 <= row && row < 8 && 0 <= col && col < 8)) {
+        return false;
+    }
+    return is_legal_move(row * 8 + col);
+}
+
+int othello::Position::num_p1_discs() const noexcept {
+    return popcount(_p1_discs);
+}
+
+int othello::Position::num_p2_discs() const noexcept {
+    return popcount(_p2_discs);
+}
+
+int othello::Position::num_flips(int action) const noexcept {
+    if (!(0 <= action && action < 64)) {
+        return 0;
+    }
+    std::uint64_t move_mask = 1ULL << (63 - action);
+    if ((_legal_moves & move_mask) == 0) {
+        return 0;
+    }
+    std::uint64_t player_discs;
+    std::uint64_t opponent_discs;
+    if (_player == 1) {
+        player_discs = _p1_discs;
+        opponent_discs = _p2_discs;
+    } else {
+        player_discs = _p2_discs;
+        opponent_discs = _p1_discs;
+    }
+    std::uint64_t flips = get_flips(move_mask, player_discs, opponent_discs);
+    return popcount(flips);
 }
 
 std::string othello::Position::to_string() const {

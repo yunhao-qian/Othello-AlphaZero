@@ -101,8 +101,9 @@ def main() -> None:
     position = Position.initial_position()
     while True:
         print(position)
-        black_discs, white_discs = _count_discs(position)
-        print(f"Black: {black_discs}, White: {white_discs}")
+        num_black_discs = position.num_p1_discs()
+        num_white_discs = position.num_p2_discs()
+        print(f"Black: {num_black_discs}, White: {num_white_discs}")
         if position.is_terminal():
             break
 
@@ -128,9 +129,9 @@ def main() -> None:
         print()
 
     print("Game over")
-    if black_discs > white_discs:
+    if num_black_discs > num_white_discs:
         print("Black wins")
-    elif white_discs > black_discs:
+    elif num_white_discs > num_black_discs:
         print("White wins")
     else:
         print("Draw")
@@ -192,19 +193,6 @@ def _create_player(args: Namespace, player: int) -> Player:
     )
 
 
-def _count_discs(position: Position) -> tuple[int, int]:
-    black_discs = 0
-    white_discs = 0
-    for row in range(8):
-        for col in range(8):
-            status = position(row, col)
-            if status == 1:
-                black_discs += 1
-            elif status == 2:
-                white_discs += 1
-    return black_discs, white_discs
-
-
 class HumanPlayer(Player):
     """Player that prompts the user to select actions."""
 
@@ -249,20 +237,15 @@ class GreedyPlayer(Player):
         if len(legal_actions) == 1:
             return legal_actions[0]
 
-        best_action = None
-        best_num_flips = 0
-        for action in legal_actions:
-            old_black_discs, old_white_discs = _count_discs(self.position)
-            new_position = self.position.apply_action(action)
-            new_black_discs, new_white_discs = _count_discs(new_position)
-            if self.position.player() == 1:
-                num_flips = old_white_discs - new_white_discs
-            else:
-                num_flips = old_black_discs - new_black_discs
-            if num_flips > best_num_flips:
-                best_action = action
-                best_num_flips = num_flips
-        return best_action
+        all_num_flips = [self.position.num_flips(action) for action in legal_actions]
+        max_num_flips = max(all_num_flips)
+        best_actions = [
+            action
+            for action, num_flips in zip(legal_actions, all_num_flips)
+            if num_flips == max_num_flips
+        ]
+        # Break ties randomly.
+        return int(np.random.choice(best_actions))
 
     def apply_action(self, action: int) -> None:
         self.position = self.position.apply_action(action)
