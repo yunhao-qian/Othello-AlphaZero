@@ -17,3 +17,4 @@ Homepage = "https://github.com/yunhao-qian/Othello-AlphaZero"
 
 [project.scripts]
 othello-train = "othello_alphazero.train:main"
+othello-play = "othello_alphazero.play:main"
