@@ -121,9 +121,11 @@ void othello::SearchThread::_simulate() {
     for (unsigned child_index : search_path) {
         SearchNode &child = search_tree[child_index];
         child.visit_count += visit_count_increment;
+        // The action-value is with respect to the parent node, so we need to
+        // flip the sign.
         child.total_action_value +=
             total_action_value_offset +
-            (child.position.player() == 1 ? action_value : -action_value);
+            (child.position.player() == 1 ? -action_value : action_value);
         child.mean_action_value = child.total_action_value / child.visit_count;
     }
 
