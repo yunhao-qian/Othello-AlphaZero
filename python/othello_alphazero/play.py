@@ -252,7 +252,7 @@ class GreedyPlayer(Player):
 
 
 class AlphaZeroPlayer(Player):
-    """Player that uses Monte Carlo Tree Search to select actions."""
+    """Player that selects actions using the AlphaZero algorithm."""
 
     def __init__(
         self,
