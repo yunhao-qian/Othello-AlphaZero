@@ -67,9 +67,8 @@ void othello::SearchThread::_simulate() {
         total_action_value_offset = 1.0f;
 
         // Use virtual losses to ensure each thread evaluates different nodes.
-        for (unsigned child_index : search_path) {
-            // The root node do not need to be updated, but it does not matter.
-            SearchNode &child = search_tree[child_index];
+        for (std::size_t i = 1; i < search_path.size(); ++i) {
+            SearchNode &child = search_tree[search_path[i]];
             child.visit_count += 1;
             child.total_action_value -= 1.0f;
             child.mean_action_value =
@@ -118,15 +117,16 @@ void othello::SearchThread::_simulate() {
     }
 
     // Backward pass to update the visit counts and action-values.
-    for (unsigned child_index : search_path) {
-        SearchNode &child = search_tree[child_index];
+    if (search_tree.front().position.player() != 1) {
+        action_value = -action_value;
+    }
+    for (std::size_t i = 1; i < search_path.size(); ++i) {
+        SearchNode &child = search_tree[search_path[i]];
         child.visit_count += visit_count_increment;
-        // The action-value is with respect to the parent node, so we need to
-        // flip the sign.
-        child.total_action_value +=
-            total_action_value_offset +
-            (child.position.player() == 1 ? -action_value : action_value);
+        child.total_action_value += total_action_value_offset + action_value;
         child.mean_action_value = child.total_action_value / child.visit_count;
+
+        action_value = -action_value;
     }
 
     search_tree_mutex.unlock();
