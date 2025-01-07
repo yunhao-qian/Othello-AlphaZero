@@ -40,7 +40,9 @@ def main() -> None:
         "--torch-float32-matmul-precision",
         default="highest",
         choices=["highest", "high", "medium"],
-        help="precision for float32 matrix multiplication in PyTorch (default: highest)",
+        help=(
+            "precision for float32 matrix multiplication in PyTorch (default: highest)"
+        ),
     )
     parser.add_argument(
         "--iterations",
