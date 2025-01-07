@@ -37,6 +37,12 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--torch-float32-matmul-precision",
+        default="highest",
+        choices=["highest", "high", "medium"],
+        help="precision for float32 matrix multiplication in PyTorch (default: highest)",
+    )
+    parser.add_argument(
         "--iterations",
         default=100,
         type=int,
@@ -171,6 +177,8 @@ def main() -> None:
     if args.device is None:
         args.device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Arguments: {args}")
+
+    torch.set_float32_matmul_precision(args.torch_float32_matmul_precision)
 
     if args.from_checkpoint is not None:
         iteration_start, config, mcts, neural_net, optimizer, lr_scheduler = (

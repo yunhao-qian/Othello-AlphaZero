@@ -33,6 +33,12 @@ def main() -> None:
         help="kind of player for the White player (default: human)",
     )
     parser.add_argument(
+        "--torch-float32-matmul-precision",
+        default="highest",
+        choices=["highest", "high", "medium"],
+        help="precision for float32 matrix multiplication in PyTorch (default: highest)",
+    )
+    parser.add_argument(
         "--alphazero-device",
         default=None,
         help="device for the AlphaZero player (default: cuda if available, else cpu)",
@@ -127,6 +133,9 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    torch.set_float32_matmul_precision(args.torch_float32_matmul_precision)
+
     player1 = _create_player(args, 1)
     player2 = _create_player(args, 2)
 
