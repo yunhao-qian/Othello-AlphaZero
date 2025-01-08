@@ -143,13 +143,13 @@ During self-play, neural network inference batch size is limited by the number o
 
 We lack the resources for a comprehensive hyperparameter search as conducted in the original paper. Instead, we performed small-scale experiments and selected the following hyperparameters:
 
-- **360** self-play and training iterations.
-- **500** self-play games per iteration, yielding approximately **480,000** training examples after data augmentation.
-- **816** MCTS simulations per action, distributed across **24** threads.
-- **32** batch size for neural network training, with self-play data trained for only **one epoch**.
-- L2 weight regularization with a coefficient of **1e-4**.
-- **SGD optimizer** with an initial learning rate of **0.02** and momentum of **0.9**.
-- The learning rate decreases by a factor of **0.1** after **60** and **120** iterations.
+- 360 self-play and training iterations.
+- 500 self-play games per iteration, yielding approximately 480,000 training examples after data augmentation.
+- 816 MCTS simulations per action, distributed across 24 threads.
+- 32 batch size for neural network training, with self-play data trained for only one epoch.
+- L2 weight regularization with a coefficient of 1e-4.
+- SGD optimizer with an initial learning rate of 0.02 and momentum of 0.9.
+- The learning rate decreases by a factor of 0.1 after 60 and 120 iterations.
 
 ### Evaluation
 
@@ -160,4 +160,9 @@ We evaluate the relative strengths of agents by playing matches between randomly
 - Random player, making entirely random moves.
 - Greedy player, selecting moves that maximize the immediate number of flips.
 
-To estimate the Elo rating $e(\cdot)$ of each agent, we assume that the probability of agent $a$ defeating agent $b$ follows $\mathrm{sigmoid}(c_\mathrm{elo} (e(b) - e(a)))$ with $c_\mathrm{elo} = 1 / 400$. We then use gradient descent to minimize the binary cross-entropy loss between observed game outcomes and predicted probabilities, with a small L2 regularization term to prevent overfitting.
+To estimate the Elo rating $e(\cdot)$ of each agent, we assume that the probability of agent $a$ defeating agent $b$ follows:
+$$
+P(a \text{ defeats } b) = \mathrm{sigmoid}(c_\mathrm{elo} (e(a) - e(b))), \quad c_\mathrm{elo} = \frac{1}{400} \text{.}
+$$
+
+We then use gradient descent to minimize the binary cross-entropy loss between observed game outcomes and predicted probabilities, with a small L2 regularization term to prevent overfitting.
