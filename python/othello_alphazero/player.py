@@ -39,6 +39,9 @@ def play_game(player1: Player, player2: Player, quiet: bool) -> int:
     :return: Winner of the game (1 for Black, 2 for White, 0 for a draw).
     """
 
+    player1.reset_position()
+    player2.reset_position()
+
     position = Position.initial_position()
     while True:
         if not quiet:
@@ -77,6 +80,8 @@ def play_game(player1: Player, player2: Player, quiet: bool) -> int:
 
     if not quiet:
         print("Game over")
+    num_black_discs = position.num_p1_discs()
+    num_white_discs = position.num_p2_discs()
     if num_black_discs > num_white_discs:
         if not quiet:
             print("Black wins")
