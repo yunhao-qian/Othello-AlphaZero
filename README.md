@@ -26,13 +26,24 @@ Training and Evaluation: Results are pending and will be added upon completion.
 
 ## Installation
 
-This project is organized into two packages: `othello_mcts` (located in the `cpp` subdirectory) containing the C++ MCTS implementation, and `othello_alphazero` (in the `python` subdirectory) housing the remaining Python-based components. To install these packages, clone the repository and run:
+This project is organized into two packages: `othello-mcts` (located in the `cpp` subdirectory) containing the C++ MCTS implementation, and `othello-alphazero` (in the `python` subdirectory) housing the remaining Python-based components. To install these packages, clone the repository and run:
 
 ```bash
 cd /path/to/Othello-AlphaZero
 pip install ./cpp
 pip install ./python
 ```
+
+The `othello-mcts` package requires LibTorch as a build dependency, which is included with the `torch` package. If PyTorch is built with CUDA support, the necessary CUDA libraries must also be available.
+
+The `othello-alphazero` package depends on:
+
+- The locally built `othello-mcts`
+- `numpy`
+- `torch`
+- `tqdm`
+
+If you want to control the versions of these dependencies, install them beforehand.
 
 ## Usage
 
