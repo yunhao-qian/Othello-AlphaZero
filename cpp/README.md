@@ -9,7 +9,7 @@ This subdirectory contains the C++ implementation of the Monte Carlo Tree Search
 
 Main components:
 
-- `position.h` and `position.cpp`: Define board representation and manipulation.
-- `mcts.h` and `mcts.cpp`: Implement the Monte Carlo Tree Search algorithm.
-- `othello_mcts.cpp`: Provide Pybind11 bindings for the Position and MCTS classes.
-- `queue.h`: Implement a thread-safe queue for managing data transfer between threads.
+- `position.h` and `position.cpp`: Board position representation and manipulation.
+- `mcts.h` and `mcts.cpp`: Implementation of the MCTS algorithm.
+- `othello_mcts.cpp`: Pybind11 bindings for the `Position` and `MCTS` classes.
+- `queue.h`: A thread-safe queue for managing data transfer between threads.

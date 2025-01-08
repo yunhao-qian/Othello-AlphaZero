@@ -4,7 +4,7 @@ This project replicates [the AlphaZero algorithm](https://arxiv.org/abs/1712.018
 
 While many open-source AlphaZero implementations exist, they often simplify the algorithm or lack performance optimization. This project aims to deliver a high-performance AlphaZero implementation specifically for Othello. Key features include:
 
-- Efficient bitwise board representation and manipulation.
+- Efficient bitwise board position representation and manipulation.
 - Multi-threaded C++ MCTS implementation.
 - PyTorch-based ResNet neural network architecture from the AlphaGo Zero paper.
 - A training pipeline for self-play data generation and neural network training.
@@ -119,7 +119,7 @@ othello-play --help
 
 ## Implementation Details
 
-### Board Representation and Manipulation
+### Board Position Representation and Manipulation
 
 The Othello board consists of an 8x8 grid, where each square can be empty, black, or white. This can be conveniently represented using a pair of 64-bit integers, one for each player. Finding legal moves and updating the position can both be done efficiently using bitwise operations, and the set of legal moves can also be represented as a bit mask. This representation saves memory and speeds up the search.
 
