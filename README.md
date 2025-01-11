@@ -38,7 +38,7 @@ The `othello-mcts` package requires LibTorch as a build dependency, which is inc
 
 The `othello-alphazero` package depends on:
 
-- The locally built `othello-mcts`
+- The locally built `othello-mcts` package
 - `numpy`
 - `torch`
 - `tqdm`
@@ -172,6 +172,7 @@ We evaluate the relative strengths of agents by playing matches between randomly
 - Greedy player, selecting moves that maximize the immediate number of flips.
 
 To estimate the Elo rating $e(\cdot)$ of each agent, we assume that the probability of agent $a$ defeating agent $b$ follows:
+
 $$
 P(a \text{ defeats } b) = \mathrm{sigmoid}(c_\mathrm{elo} (e(a) - e(b))), \quad c_\mathrm{elo} = \frac{1}{400} \text{.}
 $$
