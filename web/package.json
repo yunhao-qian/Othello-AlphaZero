@@ -30,7 +30,7 @@
     "webpack-dev-server": "^5.2.0"
   },
   "dependencies": {
-    "@fluentui/web-components": "^2.6.1",
+    "@fluentui/react-components": "^9.57.0",
     "onnxruntime-web": "^1.20.1"
   }
 }
