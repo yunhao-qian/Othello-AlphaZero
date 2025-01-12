@@ -64,7 +64,7 @@ export default function PlayerPicker({ label, disabled, settings, onChange }: Pl
 
   return (
     <div className={styles.root}>
-      <div>
+      <div className={styles.playerTypeContainer}>
         <Label htmlFor={playerTypeSelectId}>{`${label}:`}</Label>
         <Select
           id={playerTypeSelectId}
@@ -120,6 +120,12 @@ const useStyles = makeStyles({
     display: 'flex',
     alignItems: 'end',
     gap: tokens.spacingHorizontalS,
+  },
+  playerTypeContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'start',
+    gap: tokens.spacingVerticalS,
   },
 });
 
