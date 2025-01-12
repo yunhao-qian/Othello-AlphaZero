@@ -51,6 +51,7 @@ const useStyles = makeStyles({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'start',
+    gap: tokens.spacingVerticalS,
   },
   checkmarkIcon: {
     color: tokens.colorPaletteGreenForeground3,

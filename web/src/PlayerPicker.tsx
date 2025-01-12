@@ -50,7 +50,11 @@ export default function PlayerPicker({ label, disabled, settings, onChange }: Pl
     }
   }
 
-  function handleSettingsDialogClose() {
+  function handleSettingsDialogCancel() {
+    setModifiedSettings(settings);
+  }
+
+  function handleSettingsDialogSave() {
     if (modifiedSettings !== null) {
       onChange(modifiedSettings);
     }
@@ -85,11 +89,15 @@ export default function PlayerPicker({ label, disabled, settings, onChange }: Pl
             </DialogContent>
             <DialogActions>
               <DialogTrigger disableButtonEnhancement>
+                <Button appearance="secondary" onClick={handleSettingsDialogCancel}>Cancel</Button>
+              </DialogTrigger>
+              <DialogTrigger>
                 <Button
+                  appearance="primary"
                   disabled={modifiedSettings === null}
-                  onClick={handleSettingsDialogClose}
+                  onClick={handleSettingsDialogSave}
                 >
-                  Close
+                  Save
                 </Button>
               </DialogTrigger>
             </DialogActions>

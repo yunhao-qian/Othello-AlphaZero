@@ -1,4 +1,4 @@
-import { makeStyles } from '@fluentui/react-components';
+import { makeStyles, tokens } from '@fluentui/react-components';
 
 import IntInput from './IntInput';
 import { AlphaZeroSettings } from './PlayerSettings';
@@ -52,5 +52,6 @@ const useStyles = makeStyles({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'start',
+    gap: tokens.spacingVerticalM,
   },
 });
