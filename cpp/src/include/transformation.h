@@ -1,3 +1,6 @@
+/// @file transformation.h
+/// @brief Position transformation functions.
+
 #ifndef OTHELLO_MCTS_TRANSFORMATION_H
 #define OTHELLO_MCTS_TRANSFORMATION_H
 
@@ -9,8 +12,19 @@
 
 namespace othello {
 
+/// @brief Transforms an action.
+/// @param action Action to transform (0-63 for moves and 64 for pass).
+/// @param transformation Transformation to apply (0-7).
+/// @return Transformed action.
 constexpr int transform_action(int action, int transformation) noexcept;
 
+/// @brief Converts a sequence of positions to features.
+/// @param first Iterator to the current position.
+/// @param last Past-the-end iterator beyond the earliest position.
+/// @param features Feature data of shape `(feature_channels, 8, 8)` to write
+///     to, where `feature_channels = 1 + history_size * 2`.
+/// @param history_size Number of history positions to include.
+/// @param transformation Transformation to apply (0-7).
 template <typename Iterator>
 void positions_to_features(
     Iterator first,

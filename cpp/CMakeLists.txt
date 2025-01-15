@@ -23,7 +23,6 @@ pybind11_add_module(
     src/lib/mcts.cpp
     src/lib/othello_mcts.cpp
     src/lib/search_thread.cpp
-    src/lib/transformation.cpp
 )
 target_include_directories(_othello_mcts_impl PRIVATE src/include)
 

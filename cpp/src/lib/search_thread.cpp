@@ -1,3 +1,6 @@
+/// @file search_thread.cpp
+/// @brief Implementation of the search thread.
+
 #include "search_thread.h"
 
 #include <algorithm>
@@ -15,31 +18,49 @@
 
 namespace {
 
+/// @brief Iterator over the history positions.
+///
 class HistoryPositionIterator {
 public:
+    /// @brief Constructs a history position iterator.
+    /// @param node Node to start from.
     HistoryPositionIterator(othello::SearchNode *node) noexcept : _node(node) {}
 
+    /// @brief Equality comparison.
+    /// @param other Another iterator.
+    /// @return True if the iterators are equal, false otherwise.
     bool operator==(const HistoryPositionIterator &other) const noexcept {
         return _node == other._node;
     }
 
+    /// @brief Inequality comparison.
+    /// @param other Another iterator.
+    /// @return True if the iterators are not equal, false otherwise.
     bool operator!=(const HistoryPositionIterator &other) const noexcept {
         return _node != other._node;
     }
 
+    /// @brief Dereference operator.
+    /// @return Reference to the current position.
     othello::Position &operator*() const noexcept {
         return _node->position;
     }
 
+    /// @brief Member access operator.
+    /// @return Pointer to the current position.
     othello::Position *operator->() const noexcept {
         return &_node->position;
     }
 
+    /// @brief Prefix increment operator moving to the previous position.
+    /// @return Reference to the iterator.
     HistoryPositionIterator &operator++() noexcept {
         _node = _node->parent;
         return *this;
     }
 
+    /// @brief Gets the past-the-end iterator.
+    /// @return Past-the-end iterator.
     static HistoryPositionIterator end() noexcept {
         return HistoryPositionIterator(nullptr);
     }
@@ -193,7 +214,7 @@ void othello::SearchThread::_expand_and_backward(
     }
 
     float action_value;
-    // The action value is with respect to the parent node, so the sign should
+    // The action-value is with respect to the parent node, so the sign should
     // be flipped.
     if (!leaf->position.is_terminal()) {
         action_value = -value[0];
