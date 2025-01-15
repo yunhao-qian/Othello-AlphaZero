@@ -4,11 +4,11 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "othello-mcts"
-version = "2025.0.0"
+version = "2025.1.0"
 dependencies = []
 requires-python = ">=3.10"
 authors = [{ name = "Yunhao Qian", email = "yunhaoq@seas.upenn.edu" }]
-description = "Python bindings for Monte Carlo Tree Search in Othello."
+description = "Monte Carlo Tree Search for Othello."
 readme = "README.md"
 classifiers = ["License :: OSI Approved :: MIT License"]
 
