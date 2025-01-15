@@ -11,6 +11,7 @@
 othello::MCTS::MCTS(
     int history_size,
     const std::string &torch_device,
+    bool torch_pin_memory,
     int num_simulations,
     int num_threads,
     int batch_size,
@@ -20,6 +21,7 @@ othello::MCTS::MCTS(
 ) {
     set_history_size(history_size);
     set_torch_device(torch_device);
+    set_torch_pin_memory(torch_pin_memory);
     set_num_simulations(num_simulations);
     set_num_threads(num_threads);
     set_batch_size(batch_size);

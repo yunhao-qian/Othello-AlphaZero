@@ -62,7 +62,28 @@ othello::SearchThread::SearchThread(
       _neural_net_input_queue(neural_net_input_queue),
       _random_engine(std::random_device()()),
       _gamma_distribution(mcts->dirichlet_alpha(), 1.0f),
-      _transformation_distribution(0, 7) {}
+      _transformation_distribution(0, 7),
+      _leaves(mcts->batch_size()),
+      _transformations(mcts->batch_size()) {
+
+    torch::TensorOptions cpu_options =
+        torch::TensorOptions().dtype(torch::kFloat32).device(torch::kCPU);
+    if (mcts->torch_pin_memory()) {
+        cpu_options = cpu_options.pinned_memory(true);
+    }
+    torch::TensorOptions device_options = torch::TensorOptions()
+                                              .dtype(torch::kFloat32)
+                                              .device(mcts->torch_device());
+
+    _features_cpu = torch::zeros(
+        {mcts->batch_size(), 1 + mcts->history_size() * 2, 8, 8}, cpu_options
+    );
+    _features_device = torch::empty(
+        {mcts->batch_size(), 1 + mcts->history_size() * 2, 8, 8}, device_options
+    );
+    _policy_cpu = torch::empty({mcts->batch_size(), 65}, cpu_options);
+    _value_cpu = torch::empty({mcts->batch_size()}, cpu_options);
+}
 
 void othello::SearchThread::run() {
     int batch_size = _mcts->num_threads() * _mcts->batch_size();
@@ -80,8 +101,6 @@ void othello::SearchThread::_simulate_batch() {
     int num_channels = 1 + _mcts->history_size() * 2;
     int num_features = num_channels * 64;
 
-    std::vector<SearchNode *> leaves(_mcts->batch_size());
-
     _search_tree_mutex->lock();
 
     for (int i = 0; i < _mcts->batch_size(); ++i) {
@@ -90,7 +109,7 @@ void othello::SearchThread::_simulate_batch() {
              !(node->position.is_terminal() || node->children.empty());
              node = _choose_best_child(node)) {
         }
-        leaves[i] = node;
+        _leaves[i] = node;
         // Use virtual losses to ensure each thread evaluates different nodes.
         for (SearchNode *child = node; child != _search_tree;
              child = child->parent) {
@@ -104,57 +123,45 @@ void othello::SearchThread::_simulate_batch() {
     _search_tree_mutex->unlock();
 
     bool all_terminal = true;
-    std::vector<float> features(_mcts->batch_size() * num_features);
-    std::vector<int> transformations(_mcts->batch_size());
+    float *features = _features_cpu.data_ptr<float>();
 
     for (int i = 0; i < _mcts->batch_size(); ++i) {
-        if (leaves[i]->position.is_terminal()) {
+        if (_leaves[i]->position.is_terminal()) {
             continue;
         }
         all_terminal = false;
-        transformations[i] = _transformation_distribution(_random_engine);
+        _transformations[i] = _transformation_distribution(_random_engine);
         positions_to_features(
-            HistoryPositionIterator(leaves[i]),
+            HistoryPositionIterator(_leaves[i]),
             HistoryPositionIterator::end(),
-            features.data() + i * num_features,
+            features + i * num_features,
             _mcts->history_size(),
-            transformations[i]
+            _transformations[i]
         );
     }
 
-    float *policy_data = nullptr;
-    float *value_data = nullptr;
-    torch::Tensor policy;
-    torch::Tensor value;
-
     if (!all_terminal) {
-        torch::Tensor feature_tensor = torch::from_blob(
-            features.data(),
-            {_mcts->batch_size(), num_channels, 8, 8},
-            torch::kFloat32
-        );
-        feature_tensor = feature_tensor.to(
-            _mcts->torch_device(), // device
-            torch::kFloat32,       // dtype
-            false,                 // non_blocking
-            true                   // copy
-        );
+        _features_device.copy_(_features_cpu);
         _neural_net_input_queue->push(NeuralNetInput{
-            .features = std::move(feature_tensor),
+            .features = _features_device,
             .output_queue = &_neural_net_output_queue
         });
         NeuralNetOutput output = _neural_net_output_queue.pop();
-        policy = output.policy.to(torch::kCPU, torch::kFloat32).contiguous();
-        value = output.value.to(torch::kCPU, torch::kFloat32).contiguous();
-        policy_data = policy.data_ptr<float>();
-        value_data = value.data_ptr<float>();
+        _policy_cpu.copy_(output.policy);
+        _value_cpu.copy_(output.value);
     }
+
+    float *policy_data = _policy_cpu.data_ptr<float>();
+    float *value_data = _value_cpu.data_ptr<float>();
 
     _search_tree_mutex->lock();
 
     for (int i = 0; i < _mcts->batch_size(); ++i) {
         _expand_and_backward(
-            leaves[i], transformations[i], policy_data + i * 65, value_data + i
+            _leaves[i],
+            _transformations[i],
+            policy_data + i * 65,
+            value_data + i
         );
     }
 

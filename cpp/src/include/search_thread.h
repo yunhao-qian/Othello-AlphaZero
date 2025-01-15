@@ -51,6 +51,13 @@ private:
     std::mt19937 _random_engine;
     std::gamma_distribution<float> _gamma_distribution;
     std::uniform_int_distribution<int> _transformation_distribution;
+
+    std::vector<SearchNode *> _leaves;
+    std::vector<int> _transformations;
+    torch::Tensor _features_cpu;
+    torch::Tensor _features_device;
+    torch::Tensor _policy_cpu;
+    torch::Tensor _value_cpu;
 };
 
 } // namespace othello

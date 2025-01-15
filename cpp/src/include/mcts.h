@@ -38,6 +38,7 @@ public:
     MCTS(
         int history_size = 4,
         const std::string &torch_device = "cpu",
+        bool torch_pin_memory = false,
         int num_simulations = 800,
         int num_threads = 2,
         int batch_size = 16,
@@ -69,6 +70,14 @@ public:
 
     void set_torch_device(const std::string &value) {
         _torch_device = value;
+    }
+
+    bool torch_pin_memory() const noexcept {
+        return _torch_pin_memory;
+    }
+
+    void set_torch_pin_memory(bool value) {
+        _torch_pin_memory = value;
     }
 
     int num_simulations() const noexcept {
@@ -110,6 +119,7 @@ public:
 private:
     int _history_size;
     std::string _torch_device;
+    bool _torch_pin_memory;
     int _num_simulations;
     int _num_threads;
     int _batch_size;

@@ -57,6 +57,7 @@ PYBIND11_MODULE(_othello_mcts_impl, m) {
             py::init<
                 int,
                 const std::string &,
+                bool,
                 int,
                 int,
                 int,
@@ -65,6 +66,7 @@ PYBIND11_MODULE(_othello_mcts_impl, m) {
                 float>(),
             "history_size"_a = 4,
             "torch_device"_a = "cpu",
+            "torch_pin_memory"_a = false,
             "num_simulations"_a = 800,
             "num_threads"_a = 2,
             "batch_size"_a = 16,
