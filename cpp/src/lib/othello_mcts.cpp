@@ -6,6 +6,7 @@
 #include <torch/extension.h>
 
 #include "mcts.h"
+#include "neural_net_wrapper.h"
 #include "position.h"
 #include "search_thread.h"
 
@@ -80,23 +81,25 @@ PYBIND11_MODULE(_othello_mcts_impl, m) {
             "search",
             [](MCTS &mcts, py::object neural_net) {
                 othello::MCTSResult result =
-                    mcts.search([&neural_net](const torch::Tensor &features) {
-                        py::dict output = neural_net(py::cast(features));
-                        torch::Tensor policy =
-                            output["policy"].cast<torch::Tensor>();
-                        torch::Tensor value =
-                            output["value"].cast<torch::Tensor>();
-                        // Without detach(), the tensors will hold references to
-                        // Python objects and lead to unexpected GIL
-                        // acquisitions.
-                        return othello::NeuralNetOutput{
-                            .policy = policy.detach(), .value = value.detach()
-                        };
-                    });
+                    mcts.search(othello::NeuralNetWrapper(neural_net));
                 return py::dict(
                     "actions"_a = result.actions,
                     "visit_counts"_a = result.visit_counts,
                     "mean_action_values"_a = result.mean_action_values
+                );
+            }
+        )
+        .def(
+            "search_for_self_play",
+            [](MCTS &mcts, py::object neural_net) {
+                othello::SelfPlayData data = mcts.search_for_self_play(
+                    othello::NeuralNetWrapper(neural_net)
+                );
+                return py::dict(
+                    "actions"_a = data.actions,
+                    "visit_counts"_a = data.visit_counts,
+                    "features"_a = data.features,
+                    "policy"_a = data.policy
                 );
             }
         )

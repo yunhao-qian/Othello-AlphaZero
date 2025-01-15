@@ -21,6 +21,7 @@ pybind11_add_module(
 
     # Source code goes here.
     src/lib/mcts.cpp
+    src/lib/neural_net_wrapper.cpp
     src/lib/othello_mcts.cpp
     src/lib/search_thread.cpp
 )

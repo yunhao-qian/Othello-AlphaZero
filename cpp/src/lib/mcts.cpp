@@ -79,7 +79,6 @@ void othello::MCTS::apply_action(int action) {
             _search_tree->position.legal_moves() & previous_moves_mask
         );
     }
-    std::cout << "Child index:" << child_index << std::endl;
     std::unique_ptr<SearchNode> next_root =
         std::move(_search_tree->children[child_index]);
 
