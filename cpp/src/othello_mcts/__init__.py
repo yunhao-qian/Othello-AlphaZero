@@ -3,4 +3,4 @@
 # shared object file" error.
 import torch
 
-from ._othello_mcts_impl import MCTS, Position
+from ._othello_mcts_impl import MCTS, Position, get_flips, get_legal_moves

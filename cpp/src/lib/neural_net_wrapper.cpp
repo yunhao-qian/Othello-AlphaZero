@@ -1,3 +1,6 @@
+/// @file neural_net_wrapper.cpp
+/// @brief Implementation of the neural network wrapper.
+
 #include "neural_net_wrapper.h"
 
 #include <torch/extension.h>
