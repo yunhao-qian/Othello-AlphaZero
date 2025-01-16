@@ -4,9 +4,13 @@
 #include "mcts.h"
 
 #include <bit>
+#include <cstddef>
 #include <cstdint>
 #include <stdexcept>
 #include <utility>
+
+#include "position_iterator.h"
+#include "transformation.h"
 
 othello::MCTS::MCTS(
     int history_size,
@@ -34,6 +38,75 @@ othello::MCTS::MCTS(
 void othello::MCTS::reset_position() {
     _search_tree = std::make_unique<SearchNode>(Position::initial_position());
     _history.clear();
+}
+
+std::vector<int> othello::MCTS::visit_counts() {
+    std::vector<int> counts;
+    counts.reserve(_search_tree->children.size());
+    for (auto &child : _search_tree->children) {
+        counts.push_back(child->visit_count);
+    }
+    return counts;
+}
+
+std::vector<float> othello::MCTS::mean_action_values() {
+    std::vector<float> values;
+    values.reserve(_search_tree->children.size());
+    for (auto &child : _search_tree->children) {
+        values.push_back(child->mean_action_value);
+    }
+    return values;
+}
+
+othello::SelfPlayData othello::MCTS::self_play_data() {
+    if (_search_tree->position.is_terminal()) {
+        throw std::invalid_argument(
+            "Self-play data cannot be generated from a terminal position."
+        );
+    }
+    if (_search_tree->children.empty()) {
+        throw std::invalid_argument("The root node has not been expanded yet.");
+    }
+
+    SelfPlayData data;
+    data.features.reserve(8);
+    data.policy.reserve(8);
+
+    std::vector<int> legal_actions = _search_tree->position.legal_actions();
+
+    int visit_count_sum = 0;
+    for (auto &child : _search_tree->children) {
+        visit_count_sum += child->visit_count;
+    }
+    if (visit_count_sum = 0) {
+        visit_count_sum = 1;
+    }
+
+    for (int transformation = 0; transformation < 8; ++transformation) {
+        torch::Tensor features =
+            torch::empty({1 + _history_size * 2, 8, 8}, torch::kFloat32);
+        positions_to_features(
+            SearchNodePositionIterator(_search_tree.get()),
+            SearchNodePositionIterator::end(),
+            features.data_ptr<float>(),
+            _history_size,
+            transformation
+        );
+        data.features.push_back(features);
+
+        torch::Tensor policy = torch::zeros({65}, torch::kFloat32);
+        for (std::size_t i = 0; i < legal_actions.size(); ++i) {
+            int original_action = legal_actions[i];
+            int transformed_action =
+                transform_action(original_action, transformation);
+            policy.data_ptr<float>()[transformed_action] =
+                static_cast<float>(_search_tree->children[i]->visit_count) /
+                static_cast<float>(visit_count_sum);
+        }
+        data.policy.push_back(policy);
+    }
+
+    return data;
 }
 
 void othello::MCTS::apply_action(int action) {

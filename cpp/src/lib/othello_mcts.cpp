@@ -6,12 +6,45 @@
 #include <torch/extension.h>
 
 #include "mcts.h"
-#include "neural_net_wrapper.h"
+#include "neural_net.h"
 #include "position.h"
-#include "search_thread.h"
 
 namespace py = pybind11;
 using namespace py::literals;
+
+namespace {
+
+/// @brief Pybind11 neural network wrapper.
+///
+class Pybind11NeuralNet {
+public:
+    /// @brief Constructs a pybind11 neural network wrapper.
+    /// @param neural_net Neural network object that takes a tensor and returns
+    ///     a dictionary with keys "policy" and "value".
+    Pybind11NeuralNet(pybind11::object neural_net) : _neural_net(neural_net) {}
+
+    /// @brief Calls the neural network with the given features.
+    /// @param features Feature tensor of shape
+    ///     `(batch_size, feature_channels, 8, 8)`.
+    /// @return Neural network output.
+    othello::NeuralNetOutput operator()(torch::Tensor features);
+
+private:
+    pybind11::object _neural_net;
+};
+
+othello::NeuralNetOutput Pybind11NeuralNet::operator()(torch::Tensor features) {
+    py::dict output = _neural_net(py::cast(features));
+
+    // Without detach(), the tensors will hold references to Python objects and
+    // lead to unexpected GIL acquisitions.
+    return othello::NeuralNetOutput{
+        .policy = output["policy"].cast<torch::Tensor>().detach(),
+        .value = output["value"].cast<torch::Tensor>().detach()
+    };
+}
+
+} // namespace
 
 PYBIND11_MODULE(_othello_mcts_impl, m) {
     using othello::MCTS;
@@ -80,26 +113,17 @@ PYBIND11_MODULE(_othello_mcts_impl, m) {
         .def(
             "search",
             [](MCTS &mcts, py::object neural_net) {
-                othello::MCTSResult result =
-                    mcts.search(othello::NeuralNetWrapper(neural_net));
-                return py::dict(
-                    "actions"_a = result.actions,
-                    "visit_counts"_a = result.visit_counts,
-                    "mean_action_values"_a = result.mean_action_values
-                );
+                mcts.search(Pybind11NeuralNet(neural_net));
             }
         )
+        .def("visit_counts", &MCTS::visit_counts)
+        .def("mean_action_values", &MCTS::mean_action_values)
         .def(
-            "search_for_self_play",
-            [](MCTS &mcts, py::object neural_net) {
-                othello::SelfPlayData data = mcts.search_for_self_play(
-                    othello::NeuralNetWrapper(neural_net)
-                );
+            "self_play_data",
+            [](MCTS &mcts) {
+                othello::SelfPlayData data = mcts.self_play_data();
                 return py::dict(
-                    "actions"_a = data.actions,
-                    "visit_counts"_a = data.visit_counts,
-                    "features"_a = data.features,
-                    "policy"_a = data.policy
+                    "features"_a = data.features, "policy"_a = data.policy
                 );
             }
         )

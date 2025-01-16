@@ -222,7 +222,7 @@ class AlphaZeroPlayer(Player):
         action_index = np.argmax(search_result["visit_counts"])
         action_value = search_result["mean_action_values"][action_index]
         if not self.quiet:
-            print(f"Action value: {action_value:.3f}")
+            print(f"Action-value: {action_value:.3f}")
         return search_result["actions"][action_index]
 
     def apply_action(self, action: int) -> None:

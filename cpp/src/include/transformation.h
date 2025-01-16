@@ -9,6 +9,7 @@
 #include <cstdint>
 
 #include "position.h"
+#include "position_iterator.h"
 
 namespace othello {
 
@@ -25,7 +26,7 @@ constexpr int transform_action(int action, int transformation) noexcept;
 ///     to, where `feature_channels = 1 + history_size * 2`.
 /// @param history_size Number of history positions to include.
 /// @param transformation Transformation to apply (0-7).
-template <typename Iterator>
+template <PositionIterator Iterator>
 void positions_to_features(
     Iterator first,
     Iterator last,
@@ -79,7 +80,7 @@ othello::transform_action(int action, int transformation) noexcept {
     return internal::TRANSFORMED_ACTIONS[transformation][action];
 }
 
-template <typename Iterator>
+template <othello::PositionIterator Iterator>
 void othello::positions_to_features(
     Iterator first,
     Iterator last,
@@ -87,11 +88,11 @@ void othello::positions_to_features(
     int history_size,
     int transformation
 ) {
-    std::fill_n(features, 64, first->player() - 1.0f);
+    std::fill_n(features, 64, (*first).player() - 1.0f);
     features += 64;
-    Position *position = nullptr;
+    const Position *position = nullptr;
     for (int i = 0; i < history_size; ++i) {
-        if (first != last) {
+        if (!(first == last)) {
             position = &*first;
             ++first;
         }

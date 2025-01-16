@@ -3,17 +3,8 @@
 
 #include "search_thread.h"
 
-#include <algorithm>
-#include <bit>
-#include <cmath>
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <utility>
-#include <vector>
-
 #include "mcts.h"
-#include "position.h"
+#include "position_iterator.h"
 #include "transformation.h"
 
 othello::SearchThread::SearchThread(
@@ -58,15 +49,12 @@ void othello::SearchThread::run() {
     for (int i = 0; i < num_simulations; ++i) {
         _simulate_batch();
     }
-    _neural_net_input_queue->push(NeuralNetInput{
-        .features = torch::empty({}, torch::kFloat32), .output_queue = nullptr
-    });
+    _neural_net_input_queue->push(
+        NeuralNetInput{.features = _features_device, .output_queue = nullptr}
+    );
 }
 
 void othello::SearchThread::_simulate_batch() {
-    int num_channels = 1 + _mcts->history_size() * 2;
-    int num_features = num_channels * 64;
-
     _search_tree_mutex->lock();
 
     for (int i = 0; i < _mcts->batch_size(); ++i) {
@@ -90,6 +78,7 @@ void othello::SearchThread::_simulate_batch() {
 
     bool all_terminal = true;
     float *features = _features_cpu.data_ptr<float>();
+    int num_features = (1 + _mcts->history_size() * 2) * 64;
 
     for (int i = 0; i < _mcts->batch_size(); ++i) {
         if (_leaves[i]->position.is_terminal()) {
@@ -98,8 +87,8 @@ void othello::SearchThread::_simulate_batch() {
         all_terminal = false;
         _transformations[i] = _transformation_distribution(_random_engine);
         positions_to_features(
-            HistoryPositionIterator(_leaves[i]),
-            HistoryPositionIterator::end(),
+            SearchNodePositionIterator(_leaves[i]),
+            SearchNodePositionIterator::end(),
             features + i * num_features,
             _mcts->history_size(),
             _transformations[i]
@@ -141,12 +130,11 @@ void othello::SearchThread::_expand_and_backward(
     // another thread, in which case we should not expand it again.
     if (!leaf->position.is_terminal() && leaf->children.empty()) {
         std::vector<int> legal_actions = leaf->position.legal_actions();
-        leaf->children.resize(legal_actions.size());
-        for (std::size_t i = 0; i < legal_actions.size(); ++i) {
-            int original_action = legal_actions[i];
+        leaf->children.reserve(legal_actions.size());
+        for (int original_action : legal_actions) {
             int transformed_action =
                 transform_action(original_action, transformation);
-            leaf->children[i] = std::make_unique<SearchNode>(
+            leaf->children.push_back(std::make_unique<SearchNode>(
                 leaf->position.apply_action(original_action), // position
                 leaf,                                         // parent
                 std::vector<std::unique_ptr<SearchNode>>(),   // children
@@ -154,7 +142,7 @@ void othello::SearchThread::_expand_and_backward(
                 0.0f,                      // total_action_value
                 0.0f,                      // mean_action_value
                 policy[transformed_action] // prior_probability
-            );
+            ));
         }
     }
 
@@ -240,23 +228,23 @@ othello::SearchThread::_choose_best_child(const SearchNode *node) {
         return best_child;
     }
 
-    std::vector<float> noise(node->children.size());
+    std::vector<float> noises(node->children.size());
     float noise_sum = 0.0f;
-    for (std::size_t i = 0; i < noise.size(); ++i) {
-        noise[i] = _gamma_distribution(_random_engine);
-        noise_sum += noise[i];
+    for (float &noise : noises) {
+        noise = _gamma_distribution(_random_engine);
+        noise_sum += noise;
     }
     if (noise_sum == 0.0f) {
         noise_sum = 1.0f;
     }
     auto get_ucb = [&children(node->children),
-                    &noise,
+                    &noises,
                     probability_multiplier(1.0f - _mcts->dirichlet_epsilon()),
                     noise_multiplier(_mcts->dirichlet_epsilon() / noise_sum),
                     ucb_multiplier](std::size_t i) {
         auto &child = children[i];
         float probability = child->prior_probability * probability_multiplier +
-                            noise[i] * noise_multiplier;
+                            noises[i] * noise_multiplier;
         return child->mean_action_value +
                ucb_multiplier * probability / (1.0f + child->visit_count);
     };

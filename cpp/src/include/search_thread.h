@@ -6,26 +6,15 @@
 
 #include <mutex>
 #include <random>
+#include <vector>
 
-#include <torch/torch.h>
-
+#include "neural_net.h"
 #include "queue.h"
+#include "search_node.h"
 
 namespace othello {
 
-class SearchNode;
 class MCTS;
-
-/// @brief Output of the neural network.
-///
-struct NeuralNetOutput {
-    /// @brief Policy tensor of shape `(batch_size, 65)`.
-    ///
-    torch::Tensor policy;
-
-    /// @brief Value tensor of shape `(batch_size,)`.
-    torch::Tensor value;
-};
 
 /// @brief Input to the neural network.
 ///
@@ -97,6 +86,6 @@ private:
     torch::Tensor _value_cpu;
 };
 
-} // namespace othello
+}; // namespace othello
 
 #endif // OTHELLO_MCTS_SEARCH_THREAD_H

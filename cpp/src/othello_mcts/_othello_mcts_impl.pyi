@@ -25,16 +25,9 @@ class NeuralNetOutput(TypedDict):
     policy: torch.Tensor
     value: torch.Tensor
 
-class MCTSResult(TypedDict):
-    actions: list[int]
-    visit_counts: list[int]
-    mean_action_values: list[float]
-
 class SelfPlayData(TypedDict):
-    actions: list[int]
-    visit_counts: list[int]
-    features: list[torch.Tensor]
-    policy: list[torch.Tensor]
+    features: torch.Tensor
+    policy: torch.Tensor
 
 class MCTS:
     def __init__(
@@ -53,10 +46,10 @@ class MCTS:
     def position(self) -> Position: ...
     def search(
         self, neural_net: Callable[[torch.Tensor], NeuralNetOutput], /
-    ) -> MCTSResult: ...
-    def search_for_self_play(
-        self, neural_net: Callable[[torch.Tensor], NeuralNetOutput], /
-    ) -> SelfPlayData: ...
+    ) -> None: ...
+    def visit_counts(self) -> list[int]: ...
+    def mean_action_values(self) -> list[float]: ...
+    def self_play_data(self) -> SelfPlayData: ...
     def apply_action(self, action: int, /) -> None: ...
     def history_size(self) -> int: ...
     def set_history_size(self, value: int, /) -> None: ...
