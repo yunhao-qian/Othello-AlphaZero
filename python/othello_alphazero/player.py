@@ -168,26 +168,39 @@ class AlphaZeroPlayer(Player):
     def __init__(
         self,
         device: str,
+        pin_memory: bool,
         num_simulations: int,
-        batch_size: int,
         num_threads: int,
+        batch_size: int,
         checkpoint_dir: str | os.PathLike,
         compile_neural_net: bool,
         compile_neural_net_mode: str,
         quiet: bool,
     ) -> None:
-        self.mcts = MCTS(
-            torch_device=device,
-            num_simulations=num_simulations,
-            batch_size=batch_size,
-            num_threads=num_threads,
-            exploration_weight=0.0,
-            dirichlet_epsilon=0.0,
-        )
-
         checkpoint_dir = Path(checkpoint_dir)
         with (checkpoint_dir / "config.json").open() as config_file:
             config = json.load(config_file)
+
+        in_channels = config["neural_net"]["in_channels"]
+        if in_channels % 2 != 1:
+            raise ValueError(f"Expected in_channels to be odd, but got {in_channels}.")
+        history_size = (in_channels - 1) // 2
+        if history_size < 1:
+            raise ValueError(
+                f"Expected history_size to be positive, but got {history_size}."
+            )
+
+        self.mcts = MCTS(
+            history_size=history_size,
+            torch_device=device,
+            torch_pin_memory=pin_memory,
+            num_simulations=num_simulations,
+            num_threads=num_threads,
+            batch_size=batch_size,
+            exploration_weight=0.0,
+            dirichlet_epsilon=0.0,
+            dirichlet_alpha=0.5,
+        )
 
         self.neural_net = AlphaZeroNet(**config["neural_net"]).to(device)
         self.neural_net.load_state_dict(
@@ -207,23 +220,21 @@ class AlphaZeroPlayer(Player):
                 dynamic=False,
                 mode=compile_neural_net_mode,
             )
-            dummy_input = torch.zeros(
-                (min(batch_size, num_threads), 3, 8, 8), device=device
-            )
+            dummy_input = torch.zeros((batch_size, in_channels, 8, 8), device=device)
             self.neural_net(dummy_input)
 
         self.quiet = quiet
 
     def reset_position(self) -> None:
-        self.mcts.reset_position(Position.initial_position())
+        self.mcts.reset_position()
 
     def get_action(self) -> int:
-        search_result = self.mcts.search(self.neural_net)
-        action_index = np.argmax(search_result["visit_counts"])
-        action_value = search_result["mean_action_values"][action_index]
+        self.mcts.search()
+        action_index = np.argmax(self.mcts.visit_counts())
         if not self.quiet:
+            action_value = self.mcts.mean_action_values()[action_index]
             print(f"Action-value: {action_value:.3f}")
-        return search_result["actions"][action_index]
+        return self.mcts.position().legal_actions()[action_index]
 
     def apply_action(self, action: int) -> None:
         self.mcts.apply_action(action)

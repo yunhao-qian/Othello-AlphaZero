@@ -78,7 +78,7 @@ othello::SelfPlayData othello::MCTS::self_play_data() {
     for (auto &child : _search_tree->children) {
         visit_count_sum += child->visit_count;
     }
-    if (visit_count_sum = 0) {
+    if (visit_count_sum == 0) {
         visit_count_sum = 1;
     }
 

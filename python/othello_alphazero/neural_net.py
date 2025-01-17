@@ -1,5 +1,7 @@
 """Neural network proposed in the AlphaGo Zero paper adapted for Othello."""
 
+from typing import TypedDict
+
 import torch
 from torch import nn
 
@@ -94,15 +96,17 @@ class PolicyHead(nn.Module):
 class ValueHead(nn.Module):
     """Value head predicting the action-value of the current position."""
 
-    def __init__(self, in_channels: int, num_squares: int, hidden_size: int) -> None:
+    def __init__(
+        self, in_channels: int, num_squares: int, hidden_channels: int
+    ) -> None:
         super().__init__()
 
         self.conv = nn.Conv2d(in_channels, 1, 1)
         self.norm = nn.BatchNorm2d(1)
         self.relu1 = nn.ReLU()
-        self.linear1 = nn.Linear(num_squares, hidden_size)
+        self.linear1 = nn.Linear(num_squares, hidden_channels)
         self.relu2 = nn.ReLU()
-        self.linear2 = nn.Linear(hidden_size, 1)
+        self.linear2 = nn.Linear(hidden_channels, 1)
         self.tanh = nn.Tanh()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -124,40 +128,45 @@ class ValueHead(nn.Module):
         return x
 
 
+class AlphaZeroNetOutput(TypedDict):
+    """Output of the AlphaZeroNet."""
+
+    policy: torch.Tensor
+    value: torch.Tensor
+
+
 class AlphaZeroNet(nn.Module):
     """Neural network proposed in the AlphaGo Zero paper adapted for Othello."""
 
     def __init__(
         self,
         in_channels: int,
-        num_squares: int,
-        num_actions: int,
-        feature_channels: int = 256,
-        num_residual_blocks: int = 19,
-        value_head_hidden_size: int = 256,
+        num_squares: int = 64,
+        num_actions: int = 65,
+        conv_channels: int = 128,
+        num_residual_blocks: int = 9,
+        value_head_hidden_channels: int = 128,
     ) -> None:
         super().__init__()
 
-        self.conv_block = ConvBlock(in_channels, feature_channels)
+        self.conv_block = ConvBlock(in_channels, conv_channels)
         self.residual_blocks = nn.Sequential(
-            *(ResidualBlock(feature_channels) for _ in range(num_residual_blocks))
+            *(ResidualBlock(conv_channels) for _ in range(num_residual_blocks))
         )
-        self.policy_head = PolicyHead(feature_channels, num_squares, num_actions)
+        self.policy_head = PolicyHead(conv_channels, num_squares, num_actions)
         self.value_head = ValueHead(
-            feature_channels, num_squares, value_head_hidden_size
+            conv_channels, num_squares, value_head_hidden_channels
         )
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> AlphaZeroNetOutput:
         """Forward pass.
 
         :param x: Input tensor of shape `(batch_size, in_channels, height, width)`.
-        :return: Tuple of two output tensors:
-            - Policy tensor of shape `(batch_size, num_actions)`.
-            - Value tensor of shape `(batch_size,)`.
+        :return: Dictionary containing the policy and value tensors.
         """
 
         x = self.conv_block(x)
         x = self.residual_blocks(x)
         policy = self.policy_head(x)
         value = self.value_head(x)
-        return policy, value
+        return {"policy": policy, "value": value}
