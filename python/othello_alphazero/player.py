@@ -46,9 +46,9 @@ def play_game(player1: Player, player2: Player, quiet: bool) -> int:
     while True:
         if not quiet:
             print(position)
-            num_black_discs = position.num_p1_discs()
-            num_white_discs = position.num_p2_discs()
-            print(f"Black: {num_black_discs}, White: {num_white_discs}")
+            num_player1_discs = np.bitwise_count(np.uint64(position.player1_discs()))
+            num_player2_discs = np.bitwise_count(np.uint64(position.player2_discs()))
+            print(f"Black: {num_player1_discs}, White: {num_player2_discs}")
         if position.is_terminal():
             break
 
@@ -80,13 +80,13 @@ def play_game(player1: Player, player2: Player, quiet: bool) -> int:
 
     if not quiet:
         print("Game over")
-    num_black_discs = position.num_p1_discs()
-    num_white_discs = position.num_p2_discs()
-    if num_black_discs > num_white_discs:
+    num_player1_discs = np.bitwise_count(np.uint64(position.player1_discs()))
+    num_player2_discs = np.bitwise_count(np.uint64(position.player2_discs()))
+    if num_player1_discs > num_player2_discs:
         if not quiet:
             print("Black wins")
         return 1
-    if num_white_discs > num_black_discs:
+    if num_player2_discs > num_player1_discs:
         if not quiet:
             print("White wins")
         return 2
@@ -229,7 +229,7 @@ class AlphaZeroPlayer(Player):
         self.mcts.reset_position()
 
     def get_action(self) -> int:
-        self.mcts.search()
+        self.mcts.search(self.neural_net)
         action_index = np.argmax(self.mcts.visit_counts())
         if not self.quiet:
             action_value = self.mcts.mean_action_values()[action_index]
@@ -261,15 +261,14 @@ class EgaroucidPlayer(Player):
             return legal_actions[0]
 
         with tempfile.NamedTemporaryFile("w+") as problem_file:
-            for row in range(8):
-                for col in range(8):
-                    status = self.position(row, col)
-                    if status == 1:
-                        problem_file.write("B")
-                    elif status == 2:
-                        problem_file.write("W")
-                    else:
-                        problem_file.write(".")
+            for index in range(64):
+                status = self.position[index]
+                if status == 1:
+                    problem_file.write("B")
+                elif status == 2:
+                    problem_file.write("W")
+                else:
+                    problem_file.write(".")
             if self.position.player() == 1:
                 problem_file.write("B")
             else:

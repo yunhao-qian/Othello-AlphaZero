@@ -47,6 +47,11 @@ def main() -> None:
         help="device for the AlphaZero player (default: cuda if available, else cpu)",
     )
     parser.add_argument(
+        "--alphazero-pin-memory",
+        action="store_true",
+        help="use pinned memory for the AlphaZero player (default: False)",
+    )
+    parser.add_argument(
         "--alphazero-simulations",
         type=int,
         default=800,
@@ -179,6 +184,7 @@ def _create_player(args: Namespace, player: int) -> Player:
 
         return AlphaZeroPlayer(
             device=device,
+            pin_memory=args.alphazero_pin_memory,
             num_simulations=num_simulations,
             batch_size=args.alphazero_batch_size,
             num_threads=args.alphazero_threads,

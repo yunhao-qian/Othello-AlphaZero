@@ -39,7 +39,7 @@ def main() -> None:
     parser.add_argument(
         "--pin-memory",
         action="store_true",
-        help="Use pinned memory for MCTS and data loading (default: False)",
+        help="use pinned memory for MCTS and data loading (default: False)",
     )
     parser.add_argument(
         "--torch-float32-matmul-precision",
@@ -249,13 +249,26 @@ def main() -> None:
     print(f"Configuration:\n{json.dumps(config, indent=4)}")
 
     if args.compile_neural_net:
+        print("Compiling the neural net")
         neural_net.eval()
-        dummy_input = torch.zeros(
-            (args.mcts_batch_size, config["neural_net"]["in_channels"], 8, 8),
-            device=args.device,
-        )
         with torch.no_grad():
-            neural_net(dummy_input)
+            neural_net(
+                torch.zeros(
+                    (args.mcts_batch_size, config["neural_net"]["in_channels"], 8, 8),
+                    device=args.device,
+                )
+            )
+        neural_net.train()
+        dummy_output = neural_net(
+            torch.zeros(
+                (args.training_batch_size, config["neural_net"]["in_channels"], 8, 8),
+                device=args.device,
+            )
+        )
+        # To avoid UserWarning: Unable to hit fast path of CUDAGraphs because of
+        # pending, uninvoked backwards.
+        dummy_output["value"][0].backward()
+        optimizer.zero_grad()
 
     iteration_stop = iteration_start + args.iterations
     for iteration in range(iteration_start, iteration_stop):
@@ -431,6 +444,10 @@ def _train(
     policy_losses = []
     value_losses = []
     l2_losses = []
+    total_loss_sum = 0.0
+    policy_loss_sum = 0.0
+    value_loss_sum = 0.0
+    l2_loss_sum = 0.0
     mean_losses = {}
 
     progress_bar = tqdm(
@@ -452,10 +469,10 @@ def _train(
         target_values = batch["value"].to(args.device, torch.float32)
 
         optimizer.zero_grad()
-        output_policies, output_values = neural_net(features)
+        output = neural_net(features)
 
-        policy_loss = -(target_policies * output_policies.log()).sum(dim=1).mean()
-        value_loss = nn.functional.mse_loss(output_values, target_values)
+        policy_loss = -(target_policies * output["policy"].log()).sum(dim=1).mean()
+        value_loss = nn.functional.mse_loss(output["value"], target_values)
         l2_loss = args.l2_weight_regulation * sum(
             parameter.square().sum() for parameter in neural_net.parameters()
         )
@@ -469,11 +486,15 @@ def _train(
         value_losses.append(value_loss.item())
         l2_losses.append(l2_loss.item())
 
+        total_loss_sum += total_losses[-1]
+        policy_loss_sum += policy_losses[-1]
+        value_loss_sum += value_losses[-1]
+        l2_loss_sum += l2_losses[-1]
         mean_losses = {
-            "total_loss": np.mean(total_losses),
-            "policy_loss": np.mean(policy_losses),
-            "value_loss": np.mean(value_losses),
-            "l2_loss": np.mean(l2_losses),
+            "total_loss": total_loss_sum / len(total_losses),
+            "policy_loss": policy_loss_sum / len(policy_losses),
+            "value_loss": value_loss_sum / len(value_losses),
+            "l2_loss": l2_loss_sum / len(l2_losses),
         }
         progress_bar.set_postfix(mean_losses)
 
