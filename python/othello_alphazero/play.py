@@ -70,16 +70,16 @@ def main() -> None:
         help="override alphazero-simulations for player 2",
     )
     parser.add_argument(
+        "--alphazero-threads",
+        type=int,
+        default=2,
+        help="number of threads for the AlphaZero player (default: 2)",
+    )
+    parser.add_argument(
         "--alphazero-batch-size",
         type=int,
         default=16,
         help="batch size for the AlphaZero player (default: 16)",
-    )
-    parser.add_argument(
-        "--alphazero-threads",
-        type=int,
-        default=24,
-        help="number of threads for the AlphaZero player (default: 24)",
     )
     parser.add_argument(
         "--alphazero-checkpoint",
@@ -186,8 +186,8 @@ def _create_player(args: Namespace, player: int) -> Player:
             device=device,
             pin_memory=args.alphazero_pin_memory,
             num_simulations=num_simulations,
-            batch_size=args.alphazero_batch_size,
             num_threads=args.alphazero_threads,
+            batch_size=args.alphazero_batch_size,
             checkpoint_dir=checkpoint_dir,
             compile_neural_net=args.alphazero_compile_neural_net,
             compile_neural_net_mode=args.alphazero_compile_neural_net_mode,

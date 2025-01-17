@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from othello_mcts import MCTS, Position
+from othello_mcts import MCTS, Position, get_flips
 
 from .neural_net import AlphaZeroNet
 
@@ -148,7 +148,19 @@ class GreedyPlayer(Player):
         if len(legal_actions) == 1:
             return legal_actions[0]
 
-        all_num_flips = [self.position.num_flips(action) for action in legal_actions]
+        def get_num_flips(action: int) -> int:
+            move_mask = 1 << (63 - action)
+            if self.position.player() == 1:
+                player_discs = self.position.player1_discs()
+                opponent_discs = self.position.player2_discs()
+            else:
+                player_discs = self.position.player2_discs()
+                opponent_discs = self.position.player1_discs()
+            return np.bitwise_count(
+                np.uint64(get_flips(move_mask, player_discs, opponent_discs))
+            )
+
+        all_num_flips = list(map(get_num_flips, legal_actions))
         max_num_flips = max(all_num_flips)
         best_actions = [
             action
