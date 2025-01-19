@@ -82,6 +82,24 @@ def main() -> None:
         help="batch size for the AlphaZero player (default: 16)",
     )
     parser.add_argument(
+        "--alphazero-exploration-weight",
+        type=float,
+        default=1.0,
+        help="exploration weight for the AlphaZero player (default: 1.0)",
+    )
+    parser.add_argument(
+        "--alphazero-exploration-weight-player1",
+        type=float,
+        default=None,
+        help="override alphazero-exploration-weight for player 1",
+    )
+    parser.add_argument(
+        "--alphazero-exploration-weight-player2",
+        type=float,
+        default=None,
+        help="override alphazero-exploration-weight for player 2",
+    )
+    parser.add_argument(
         "--alphazero-checkpoint",
         type=Path,
         default=None,
@@ -182,12 +200,21 @@ def _create_player(args: Namespace, player: int) -> Player:
         if checkpoint_dir is None:
             raise ValueError("AlphaZero checkpoint directory not specified")
 
+        exploration_weight = (
+            args.alphazero_exploration_weight_player1
+            if player == 1
+            else args.alphazero_exploration_weight_player2
+        )
+        if exploration_weight is None:
+            exploration_weight = args.alphazero_exploration_weight
+
         return AlphaZeroPlayer(
             device=device,
             pin_memory=args.alphazero_pin_memory,
             num_simulations=num_simulations,
             num_threads=args.alphazero_threads,
             batch_size=args.alphazero_batch_size,
+            exploration_weight=exploration_weight,
             checkpoint_dir=checkpoint_dir,
             compile_neural_net=args.alphazero_compile_neural_net,
             compile_neural_net_mode=args.alphazero_compile_neural_net_mode,

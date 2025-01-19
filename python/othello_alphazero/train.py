@@ -407,7 +407,9 @@ def _self_play(
             action = np.random.choice(position.legal_actions(), p=action_probabilities)
             action = int(action)
         else:
-            action = position.legal_actions()[visit_counts.argmax()]
+            best_action_indices = np.where(visit_counts == visit_counts.max())[0]
+            best_action_index = np.random.choice(best_action_indices)
+            action = position.legal_actions()[best_action_index]
 
         data = mcts.self_play_data()
         features += data["features"]

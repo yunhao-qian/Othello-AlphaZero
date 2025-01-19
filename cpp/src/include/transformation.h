@@ -90,22 +90,26 @@ void othello::positions_to_features(
 ) {
     std::fill_n(features, 64, (*first).player() - 1.0f);
     features += 64;
-    const Position *position = nullptr;
     for (int i = 0; i < history_size; ++i) {
-        if (!(first == last)) {
-            position = &*first;
+        if (first == last) {
+            std::fill_n(features, 128, 0.0f);
+        } else {
+            const Position &position = *first;
+            std::uint64_t player1_discs = position.player1_discs();
+            std::uint64_t player2_discs = position.player2_discs();
             ++first;
-        }
-        std::uint64_t player1_discs = position->player1_discs();
-        std::uint64_t player2_discs = position->player2_discs();
-        std::uint64_t square_mask = std::uint64_t(1) << 63;
-        for (int original_index = 0; original_index < 64; ++original_index) {
-            int transformed_index =
-                transform_action(original_index, transformation);
-            features[transformed_index] = (player1_discs & square_mask) != 0;
-            features[64 + transformed_index] =
-                (player2_discs & square_mask) != 0;
-            square_mask >>= 1;
+
+            std::uint64_t square_mask = std::uint64_t(1) << 63;
+            for (int original_index = 0; original_index < 64;
+                 ++original_index) {
+                int transformed_index =
+                    transform_action(original_index, transformation);
+                features[transformed_index] =
+                    (player1_discs & square_mask) != 0;
+                features[64 + transformed_index] =
+                    (player2_discs & square_mask) != 0;
+                square_mask >>= 1;
+            }
         }
         features += 128;
     }

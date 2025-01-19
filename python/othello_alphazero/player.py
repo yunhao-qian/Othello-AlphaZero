@@ -184,6 +184,7 @@ class AlphaZeroPlayer(Player):
         num_simulations: int,
         num_threads: int,
         batch_size: int,
+        exploration_weight: float,
         checkpoint_dir: str | os.PathLike,
         compile_neural_net: bool,
         compile_neural_net_mode: str,
@@ -209,7 +210,7 @@ class AlphaZeroPlayer(Player):
             num_simulations=num_simulations,
             num_threads=num_threads,
             batch_size=batch_size,
-            exploration_weight=0.0,
+            exploration_weight=exploration_weight,
             dirichlet_epsilon=0.0,
             dirichlet_alpha=0.5,
         )
@@ -242,11 +243,13 @@ class AlphaZeroPlayer(Player):
 
     def get_action(self) -> int:
         self.mcts.search(self.neural_net)
-        action_index = np.argmax(self.mcts.visit_counts())
+        visit_counts = np.array(self.mcts.visit_counts())
+        best_action_indices = np.where(visit_counts == visit_counts.max())[0]
+        best_action_index = np.random.choice(best_action_indices)
         if not self.quiet:
-            action_value = self.mcts.mean_action_values()[action_index]
+            action_value = self.mcts.mean_action_values()[best_action_index]
             print(f"Action-value: {action_value:.3f}")
-        return self.mcts.position().legal_actions()[action_index]
+        return self.mcts.position().legal_actions()[best_action_index]
 
     def apply_action(self, action: int) -> None:
         self.mcts.apply_action(action)
