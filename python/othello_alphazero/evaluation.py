@@ -84,7 +84,7 @@ def play_games(
         )
 
         with game_results_file.open("w", encoding="utf-8") as file:
-            json.dump(game_results, file)
+            json.dump(game_results, file, indent=4)
 
         if callback is not None:
             callback(game_results)
