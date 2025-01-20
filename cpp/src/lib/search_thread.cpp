@@ -3,6 +3,8 @@
 
 #include "search_thread.h"
 
+#include <cmath>
+
 #include "mcts.h"
 #include "position_iterator.h"
 #include "transformation.h"
@@ -72,6 +74,8 @@ void othello::SearchThread::_simulate_batch() {
             child->mean_action_value =
                 child->total_action_value / child->visit_count;
         }
+        // The root node visit count is used for computing exploration rates.
+        _search_tree->visit_count += 1;
     }
 
     _search_tree_mutex->unlock();
@@ -191,23 +195,18 @@ othello::SearchThread::_choose_best_child(const SearchNode *node) {
         return node->children.front().get();
     }
 
-    if (!(_mcts->exploration_weight() > 0.0f)) {
-        return std::max_element(
-                   node->children.begin(),
-                   node->children.end(),
-                   [](const auto &a, const auto &b) {
-                       return a->mean_action_value < b->mean_action_value;
-                   }
-        )->get();
-    }
-
+    float exploration_rate =
+        std::log(
+            (1 + node->visit_count + _mcts->c_puct_base()) /
+            _mcts->c_puct_base()
+        ) +
+        _mcts->c_puct_init();
     int total_visit_count = 0;
     for (auto &child : node->children) {
         total_visit_count += child->visit_count;
     }
-    float sqrt_total_visit_count =
-        std::sqrt(static_cast<float>(total_visit_count));
-    float ucb_multiplier = _mcts->exploration_weight() * sqrt_total_visit_count;
+    float ucb_multiplier =
+        exploration_rate * std::sqrt(static_cast<float>(total_visit_count));
 
     if (!(node == _search_tree && _mcts->dirichlet_epsilon() > 0.0f)) {
         auto get_ucb = [ucb_multiplier](const auto &child) {

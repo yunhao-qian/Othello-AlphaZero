@@ -148,10 +148,16 @@ def main() -> None:
         help="batch size for neural net inference in MCTS (default: 16)",
     )
     parser.add_argument(
-        "--mcts-exploration-weight",
-        default=1.0,
+        "--mcts-c-puct-base",
+        default=20000.0,
         type=float,
-        help="exploration weight of the PUCT algorithm in MCTS (default: 1.0)",
+        help="c_puct_base of the PUCT algorithm in MCTS (default: 20000.0)",
+    )
+    parser.add_argument(
+        "--mcts-c-puct-init",
+        default=2.5,
+        type=float,
+        help="c_puct_init of the PUCT algorithm in MCTS (default: 2.5)",
     )
     parser.add_argument(
         "--mcts-dirichlet-epsilon",
@@ -215,7 +221,8 @@ def main() -> None:
                 "num_simulations": args.mcts_simulations,
                 "num_threads": args.mcts_threads,
                 "batch_size": args.mcts_batch_size,
-                "exploration_weight": args.mcts_exploration_weight,
+                "c_puct_base": args.mcts_c_puct_base,
+                "c_puct_init": args.mcts_c_puct_init,
                 "dirichlet_epsilon": args.mcts_dirichlet_epsilon,
                 "dirichlet_alpha": args.mcts_dirichlet_alpha,
             },

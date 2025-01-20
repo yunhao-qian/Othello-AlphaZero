@@ -43,8 +43,8 @@ public:
     /// @param num_simulations Total number of simulations for a single search.
     /// @param num_threads Number of threads for parallel search.
     /// @param batch_size Batch size for neural network inference.
-    /// @param exploration_weight Exploration weight for the upper confidence
-    ///     bound. It is called `c_puct` in the AlphaGo Zero paper.
+    /// @param c_puct_init \f$c_\text{init}\f$ for the PUCT formula.
+    /// @param c_puct_base \f$c_\text{base}\f$ for the PUCT formula.
     /// @param dirichlet_epsilon Epsilon for Dirichlet noise.
     /// @param dirichlet_alpha Alpha for Dirichlet noise.
     MCTS(
@@ -54,7 +54,8 @@ public:
         int num_simulations = 800,
         int num_threads = 2,
         int batch_size = 16,
-        float exploration_weight = 1.0f,
+        float c_puct_init = 20000.0f,
+        float c_puct_base = 2.5f,
         float dirichlet_epsilon = 0.25f,
         float dirichlet_alpha = 0.5f
     );
@@ -77,15 +78,15 @@ public:
     template <NeuralNet T>
     void search(T &&neural_net);
 
-    /// @brief Returns the visit counts of the edges from the root node.
+    /// @brief Gets the visit counts of the edges from the root node.
     /// @return Vector of visit counts.
     std::vector<int> visit_counts();
 
-    /// @brief Returns the mean action-values of the edges from the root node.
+    /// @brief Gets the mean action-values of the edges from the root node.
     /// @return Vector of mean action-values.
     std::vector<float> mean_action_values();
 
-    /// @brief Returns the self-play data for training neural networks.
+    /// @brief Gets the self-play data for training neural networks.
     /// @return Self-play data.
     SelfPlayData self_play_data();
 
@@ -158,15 +159,25 @@ public:
     /// @param value Batch size.
     void set_batch_size(int value);
 
-    /// @brief Gets the exploration weight.
-    /// @return Exploration weight.
-    float exploration_weight() const noexcept {
-        return _exploration_weight;
+    /// @brief Gets the \f$c_\text{base}\f$ for the PUCT formula.
+    /// @return \f$c_\text{base}\f$ for the PUCT formula.
+    float c_puct_base() const noexcept {
+        return _c_puct_base;
     }
 
-    /// @brief Sets the exploration weight.
-    /// @param value Exploration weight.
-    void set_exploration_weight(float value);
+    /// @brief Sets the \f$c_\text{base}\f$ for the PUCT formula.
+    /// @param value \f$c_\text{base}\f$ for the PUCT formula.
+    void set_c_puct_base(float value);
+
+    /// @brief Gets the \f$c_\text{init}\f$ for the PUCT formula.
+    /// @return \f$c_\text{init}\f$ for the PUCT formula.
+    float c_puct_init() const noexcept {
+        return _c_puct_init;
+    }
+
+    /// @brief Sets the \f$c_\text{init}\f$ for the PUCT formula.
+    /// @param value \f$c_\text{init}\f$ for the PUCT formula.
+    void set_c_puct_init(float value);
 
     /// @brief Gets the Dirichlet noise epsilon.
     /// @return Dirichlet noise epsilon.
@@ -195,7 +206,8 @@ private:
     int _num_simulations;
     int _num_threads;
     int _batch_size;
-    float _exploration_weight;
+    float _c_puct_base;
+    float _c_puct_init;
     float _dirichlet_epsilon;
     float _dirichlet_alpha;
 

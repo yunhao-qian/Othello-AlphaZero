@@ -82,22 +82,40 @@ def main() -> None:
         help="batch size for the AlphaZero player (default: 16)",
     )
     parser.add_argument(
-        "--alphazero-exploration-weight",
+        "--alphazero-c-puct-base",
         type=float,
-        default=1.0,
-        help="exploration weight for the AlphaZero player (default: 1.0)",
+        default=20000.0,
+        help="c_puct_base for the AlphaZero player (default: 1.0)",
     )
     parser.add_argument(
-        "--alphazero-exploration-weight-player1",
+        "--alphazero-c-puct-base-player1",
         type=float,
         default=None,
-        help="override alphazero-exploration-weight for player 1",
+        help="override alphazero-c-puct-base for player 1",
     )
     parser.add_argument(
-        "--alphazero-exploration-weight-player2",
+        "--alphazero-c-puct-base-player2",
         type=float,
         default=None,
-        help="override alphazero-exploration-weight for player 2",
+        help="override alphazero-c-puct-base for player 2",
+    )
+    parser.add_argument(
+        "--alphazero-c-puct-init",
+        type=float,
+        default=2.5,
+        help="c_puct_init for the AlphaZero player (default: 2.5)",
+    )
+    parser.add_argument(
+        "--alphazero-c-puct-init-player1",
+        type=float,
+        default=None,
+        help="override alphazero-c-puct-init for player 1",
+    )
+    parser.add_argument(
+        "--alphazero-c-puct-init-player2",
+        type=float,
+        default=None,
+        help="override alphazero-c-puct-init for player 2",
     )
     parser.add_argument(
         "--alphazero-checkpoint",
@@ -200,13 +218,21 @@ def _create_player(args: Namespace, player: int) -> Player:
         if checkpoint_dir is None:
             raise ValueError("AlphaZero checkpoint directory not specified")
 
-        exploration_weight = (
-            args.alphazero_exploration_weight_player1
+        c_puct_base = (
+            args.alphazero_c_puct_base_player1
             if player == 1
-            else args.alphazero_exploration_weight_player2
+            else args.alphazero_c_puct_base_player2
         )
-        if exploration_weight is None:
-            exploration_weight = args.alphazero_exploration_weight
+        if c_puct_base is None:
+            c_puct_base = args.alphazero_c_puct_base
+
+        c_puct_init = (
+            args.alphazero_c_puct_init_player1
+            if player == 1
+            else args.alphazero_c_puct_init_player2
+        )
+        if c_puct_init is None:
+            c_puct_init = args.alphazero_c_puct_init
 
         return AlphaZeroPlayer(
             device=device,
@@ -214,7 +240,8 @@ def _create_player(args: Namespace, player: int) -> Player:
             num_simulations=num_simulations,
             num_threads=args.alphazero_threads,
             batch_size=args.alphazero_batch_size,
-            exploration_weight=exploration_weight,
+            c_puct_base=c_puct_base,
+            c_puct_init=c_puct_init,
             checkpoint_dir=checkpoint_dir,
             compile_neural_net=args.alphazero_compile_neural_net,
             compile_neural_net_mode=args.alphazero_compile_neural_net_mode,

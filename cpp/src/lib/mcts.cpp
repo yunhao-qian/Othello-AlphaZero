@@ -19,7 +19,8 @@ othello::MCTS::MCTS(
     int num_simulations,
     int num_threads,
     int batch_size,
-    float exploration_weight,
+    float c_puct_base,
+    float c_puct_init,
     float dirichlet_epsilon,
     float dirichlet_alpha
 ) {
@@ -29,7 +30,8 @@ othello::MCTS::MCTS(
     set_num_simulations(num_simulations);
     set_num_threads(num_threads);
     set_batch_size(batch_size);
-    set_exploration_weight(exploration_weight);
+    set_c_puct_base(c_puct_base);
+    set_c_puct_init(c_puct_init);
     set_dirichlet_epsilon(dirichlet_epsilon);
     set_dirichlet_alpha(dirichlet_alpha);
     reset_position();
@@ -199,14 +201,23 @@ void othello::MCTS::set_batch_size(int value) {
     _batch_size = value;
 }
 
-void othello::MCTS::set_exploration_weight(float value) {
-    if (!(value >= 0.0f)) {
+void othello::MCTS::set_c_puct_base(float value) {
+    if (!(value > 0.0f)) {
         throw std::invalid_argument(
-            "Expected exploration_weight >= 0.0, but got " +
-            std::to_string(value) + "."
+            "Expected c_puct_base > 0.0, but got " + std::to_string(value) + "."
         );
     }
-    _exploration_weight = value;
+    _c_puct_base = value;
+}
+
+void othello::MCTS::set_c_puct_init(float value) {
+    if (!(value >= 0.0f)) {
+        throw std::invalid_argument(
+            "Expected c_puct_init >= 0.0, but got " + std::to_string(value) +
+            "."
+        );
+    }
+    _c_puct_init = value;
 }
 
 void othello::MCTS::set_dirichlet_epsilon(float value) {

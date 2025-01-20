@@ -97,6 +97,7 @@ PYBIND11_MODULE(_othello_mcts_impl, m) {
                 int,
                 float,
                 float,
+                float,
                 float>(),
             "history_size"_a = 4,
             "torch_device"_a = "cpu",
@@ -104,7 +105,8 @@ PYBIND11_MODULE(_othello_mcts_impl, m) {
             "num_simulations"_a = 800,
             "num_threads"_a = 2,
             "batch_size"_a = 16,
-            "exploration_weight"_a = 1.0f,
+            "c_puct_base"_a = 20000.0f,
+            "c_puct_init"_a = 2.5f,
             "dirichlet_epsilon"_a = 0.25f,
             "dirichlet_alpha"_a = 0.5f
         )
@@ -138,8 +140,10 @@ PYBIND11_MODULE(_othello_mcts_impl, m) {
         .def("set_num_threads", &MCTS::set_num_threads)
         .def("batch_size", &MCTS::batch_size)
         .def("set_batch_size", &MCTS::set_batch_size)
-        .def("exploration_weight", &MCTS::exploration_weight)
-        .def("set_exploration_weight", &MCTS::set_exploration_weight)
+        .def("c_puct_base", &MCTS::c_puct_base)
+        .def("set_c_puct_base", &MCTS::set_c_puct_base)
+        .def("c_puct_init", &MCTS::c_puct_init)
+        .def("set_c_puct_init", &MCTS::set_c_puct_init)
         .def("dirichlet_epsilon", &MCTS::dirichlet_epsilon)
         .def("set_dirichlet_epsilon", &MCTS::set_dirichlet_epsilon)
         .def("dirichlet_alpha", &MCTS::dirichlet_alpha)
