@@ -188,6 +188,7 @@ class AlphaZeroPlayer(Player):
         c_puct_init: float,
         checkpoint_dir: str | os.PathLike,
         compile_neural_net: bool,
+        compile_neural_net_backend: str,
         compile_neural_net_mode: str,
         quiet: bool,
     ) -> None:
@@ -233,6 +234,7 @@ class AlphaZeroPlayer(Player):
                 self.neural_net,
                 fullgraph=True,
                 dynamic=False,
+                backend=compile_neural_net_backend,
                 mode=compile_neural_net_mode,
             )
             dummy_input = torch.zeros((batch_size, in_channels, 8, 8), device=device)
@@ -263,7 +265,7 @@ class EgaroucidPlayer(Player):
     def __init__(
         self, egaroucid_exe: str | os.PathLike, level: int, num_threads: int
     ) -> None:
-        self.egaroucid_exe = str(egaroucid_exe)
+        self.egaroucid_path = Path(egaroucid_exe).resolve()
         self.level = level
         self.num_threads = num_threads
 
@@ -295,7 +297,7 @@ class EgaroucidPlayer(Player):
 
             output = subprocess.run(
                 [
-                    self.egaroucid_exe,
+                    f"./{self.egaroucid_path.name}",
                     "-level",
                     str(self.level),
                     "-nobook",
@@ -304,6 +306,7 @@ class EgaroucidPlayer(Player):
                     "-solve",
                     problem_file.name,
                 ],
+                cwd=self.egaroucid_path.parent,
                 capture_output=True,
                 check=True,
                 text=True,

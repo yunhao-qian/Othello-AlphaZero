@@ -177,6 +177,11 @@ def main() -> None:
         help="compile the neural net (default: False)",
     )
     parser.add_argument(
+        "--compile-neural-net-backend",
+        default="inductor",
+        help="compilation backend for the neural net (default: inductor)",
+    )
+    parser.add_argument(
         "--compile-neural-net-mode",
         default="max-autotune",
         help="compilation mode for the neural net (default: max-autotune)",
@@ -246,7 +251,10 @@ def main() -> None:
         neural_net = AlphaZeroNet(**config["neural_net"]).to(args.device)
         if args.compile_neural_net:
             neural_net = torch.compile(
-                neural_net, fullgraph=True, mode=args.compile_neural_net_mode
+                neural_net,
+                fullgraph=True,
+                backend=args.compile_neural_net_backend,
+                mode=args.compile_neural_net_mode,
             )
         # Adam does not work well with this kind of tasks:
         # https://github.com/leela-zero/leela-zero/issues/78#issuecomment-353651540
@@ -329,7 +337,10 @@ def _resume_from_checkpoint(
     )
     if args.compile_neural_net:
         neural_net = torch.compile(
-            neural_net, fullgraph=True, mode=args.compile_neural_net_mode
+            neural_net,
+            fullgraph=True,
+            backend=args.compile_neural_net_backend,
+            mode=args.compile_neural_net_mode,
         )
 
     optimizer = SGD(neural_net.parameters(), **config["optimizer"])

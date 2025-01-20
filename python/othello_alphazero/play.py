@@ -141,6 +141,11 @@ def main() -> None:
         help="compile the neural net for the AlphaZero player",
     )
     parser.add_argument(
+        "--alphazero-compile-neural-net-backend",
+        default="inductor",
+        help="compilation backend for the AlphaZero player (default: indutor)",
+    )
+    parser.add_argument(
         "--alphazero-compile-neural-net-mode",
         default="max-autotune",
         help="compilation mode for the AlphaZero player (default: max-autotune)",
@@ -244,6 +249,7 @@ def _create_player(args: Namespace, player: int) -> Player:
             c_puct_init=c_puct_init,
             checkpoint_dir=checkpoint_dir,
             compile_neural_net=args.alphazero_compile_neural_net,
+            compile_neural_net_backend=args.alphazero_compile_neural_net_backend,
             compile_neural_net_mode=args.alphazero_compile_neural_net_mode,
             quiet=False,
         )
