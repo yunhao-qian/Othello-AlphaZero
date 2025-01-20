@@ -193,7 +193,7 @@ class AlphaZeroPlayer(Player):
         quiet: bool,
     ) -> None:
         checkpoint_dir = Path(checkpoint_dir)
-        with (checkpoint_dir / "config.json").open() as config_file:
+        with (checkpoint_dir / "config.json").open(encoding="utf-8") as config_file:
             config = json.load(config_file)
 
         in_channels = config["neural_net"]["in_channels"]

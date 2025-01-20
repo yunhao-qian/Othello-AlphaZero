@@ -298,10 +298,10 @@ def main() -> None:
 
         (iteration_dir / "iteration.txt").write_text(str(iteration))
 
-        with (iteration_dir / "config.json").open("w") as config_file:
+        with (iteration_dir / "config.json").open("w", encoding="utf-8") as config_file:
             json.dump(config, config_file, indent=4)
 
-        with (iteration_dir / "stats.json").open("w") as stats_file:
+        with (iteration_dir / "stats.json").open("w", encoding="utf-8") as stats_file:
             json.dump({"lr": lr, **mean_losses}, stats_file, indent=4)
 
         if args.compile_neural_net:
@@ -318,7 +318,7 @@ def _resume_from_checkpoint(
 ) -> tuple[int, dict[str, Any], MCTS, AlphaZeroNet, SGD, MultiStepLR]:
     """Loads components from a checkpoint directory."""
 
-    with (args.from_checkpoint / "config.json").open() as config_file:
+    with (args.from_checkpoint / "config.json").open(encoding="utf-8") as config_file:
         config = json.load(config_file)
 
     iteration = int((args.from_checkpoint / "iteration.txt").read_text().strip())
