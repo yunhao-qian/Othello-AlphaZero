@@ -97,7 +97,6 @@ PYBIND11_MODULE(_othello_mcts_impl, m) {
                 int,
                 float,
                 float,
-                float,
                 float>(),
             "history_size"_a = 4,
             "torch_device"_a = "cpu",
@@ -106,9 +105,7 @@ PYBIND11_MODULE(_othello_mcts_impl, m) {
             "num_threads"_a = 2,
             "batch_size"_a = 16,
             "c_puct_base"_a = 20000.0f,
-            "c_puct_init"_a = 2.5f,
-            "dirichlet_epsilon"_a = 0.25f,
-            "dirichlet_alpha"_a = 0.5f
+            "c_puct_init"_a = 2.5f
         )
         .def("reset_position", &MCTS::reset_position)
         .def("position", &MCTS::position)
@@ -120,15 +117,6 @@ PYBIND11_MODULE(_othello_mcts_impl, m) {
         )
         .def("visit_counts", &MCTS::visit_counts)
         .def("mean_action_values", &MCTS::mean_action_values)
-        .def(
-            "self_play_data",
-            [](MCTS &mcts) {
-                othello::SelfPlayData data = mcts.self_play_data();
-                return py::dict(
-                    "features"_a = data.features, "policy"_a = data.policy
-                );
-            }
-        )
         .def("apply_action", &MCTS::apply_action)
         .def("history_size", &MCTS::history_size)
         .def("set_history_size", &MCTS::set_history_size)
@@ -143,9 +131,5 @@ PYBIND11_MODULE(_othello_mcts_impl, m) {
         .def("c_puct_base", &MCTS::c_puct_base)
         .def("set_c_puct_base", &MCTS::set_c_puct_base)
         .def("c_puct_init", &MCTS::c_puct_init)
-        .def("set_c_puct_init", &MCTS::set_c_puct_init)
-        .def("dirichlet_epsilon", &MCTS::dirichlet_epsilon)
-        .def("set_dirichlet_epsilon", &MCTS::set_dirichlet_epsilon)
-        .def("dirichlet_alpha", &MCTS::dirichlet_alpha)
-        .def("set_dirichlet_alpha", &MCTS::set_dirichlet_alpha);
+        .def("set_c_puct_init", &MCTS::set_c_puct_init);
 }

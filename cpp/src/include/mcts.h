@@ -5,6 +5,8 @@
 #define OTHELLO_MCTS_MCTS_H
 
 #include <memory>
+#include <mutex>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -12,23 +14,10 @@
 
 #include "neural_net.h"
 #include "position.h"
-#include "queue"
+#include "queue.h"
 #include "search_node.h"
-#include "search_thread.h"
 
 namespace othello {
-
-/// @brief Self-play data for training neural networks.
-///
-struct SelfPlayData {
-    /// @brief Vector of 8 feature tensors, each of shape
-    ///     `(feature_channels, 8, 8)`.
-    std::vector<torch::Tensor> features;
-
-    /// @brief Vector of 8 policy tensors, each of shape `(65,)`.
-    ///
-    std::vector<torch::Tensor> policy;
-};
 
 /// @brief Monte Carlo Tree Search algorithm.
 ///
@@ -45,8 +34,6 @@ public:
     /// @param batch_size Batch size for neural network inference.
     /// @param c_puct_init \f$c_\text{init}\f$ for the PUCT formula.
     /// @param c_puct_base \f$c_\text{base}\f$ for the PUCT formula.
-    /// @param dirichlet_epsilon Epsilon for Dirichlet noise.
-    /// @param dirichlet_alpha Alpha for Dirichlet noise.
     MCTS(
         int history_size = 4,
         const std::string &torch_device = "cpu",
@@ -55,9 +42,7 @@ public:
         int num_threads = 2,
         int batch_size = 16,
         float c_puct_init = 20000.0f,
-        float c_puct_base = 2.5f,
-        float dirichlet_epsilon = 0.25f,
-        float dirichlet_alpha = 0.5f
+        float c_puct_base = 2.5f
     );
 
     /// @brief Resets the search tree to the initial position.
@@ -85,10 +70,6 @@ public:
     /// @brief Gets the mean action-values of the edges from the root node.
     /// @return Vector of mean action-values.
     std::vector<float> mean_action_values();
-
-    /// @brief Gets the self-play data for training neural networks.
-    /// @return Self-play data.
-    SelfPlayData self_play_data();
 
     /// @brief Applies an action to the current position and updates the search
     ///     tree accordingly.
@@ -179,26 +160,6 @@ public:
     /// @param value \f$c_\text{init}\f$ for the PUCT formula.
     void set_c_puct_init(float value);
 
-    /// @brief Gets the Dirichlet noise epsilon.
-    /// @return Dirichlet noise epsilon.
-    float dirichlet_epsilon() const noexcept {
-        return _dirichlet_epsilon;
-    }
-
-    /// @brief Sets the Dirichlet noise epsilon.
-    /// @param value Dirichlet noise epsilon.
-    void set_dirichlet_epsilon(float value);
-
-    /// @brief Gets the Dirichlet noise alpha.
-    /// @return Dirichlet noise alpha.
-    float dirichlet_alpha() const noexcept {
-        return _dirichlet_alpha;
-    }
-
-    /// @brief Sets the Dirichlet noise alpha.
-    /// @param value Dirichlet noise alpha.
-    void set_dirichlet_alpha(float value);
-
 private:
     int _history_size;
     std::string _torch_device;
@@ -208,11 +169,78 @@ private:
     int _batch_size;
     float _c_puct_base;
     float _c_puct_init;
-    float _dirichlet_epsilon;
-    float _dirichlet_alpha;
 
     std::unique_ptr<SearchNode> _search_tree;
     std::vector<std::unique_ptr<SearchNode>> _history;
+};
+
+/// @brief Input to the neural network.
+///
+struct NeuralNetInput {
+    /// @brief Feature tensor of shape `(batch_size, feature_channels, 8, 8)`.
+    ///
+    torch::Tensor features;
+
+    /// @brief Queue to push the neural network output to.
+    ///
+    Queue<NeuralNetOutput> *output_queue;
+};
+
+/// @brief Search thread.
+///
+class SearchThread {
+public:
+    /// @brief Constructs a search thread.
+    /// @param mcts MCTS object to get the parameters from.
+    /// @param search_tree Root of the search tree.
+    /// @param search_tree_mutex Mutex to lock the search tree.
+    /// @param neural_net_input_queue Queue to push the neural network inputs
+    ///     to.
+    SearchThread(
+        const MCTS *mcts,
+        SearchNode *seach_tree,
+        std::mutex *search_tree_mutex,
+        Queue<NeuralNetInput> *neural_net_input_queue
+    );
+
+    /// @brief Runs the search thread.
+    ///
+    void run();
+
+private:
+    /// @brief Runs a batch of simulations simultaneously.
+    ///
+    void _simulate_batch();
+
+    /// @brief Expands the leaf node if it is not terminal, and back-propagates
+    ///     the action-value.
+    /// @param leaf Leaf node.
+    /// @param transformation Transformation applied to the positions.
+    /// @param policy Policy data of shape `(65,)`.
+    /// @param value Value data of shape `()`.
+    void _expand_and_backward(
+        SearchNode *leaf, int transformation, float *policy, float *value
+    );
+
+    /// @brief Chooses the best child node according to the UCB formula.
+    /// @param node Parent node.
+    /// @return Best child node.
+    SearchNode *_choose_best_child(const SearchNode *node);
+
+    const MCTS *_mcts;
+    SearchNode *_search_tree;
+    std::mutex *_search_tree_mutex;
+    Queue<NeuralNetInput> *_neural_net_input_queue;
+    Queue<NeuralNetOutput> _neural_net_output_queue;
+    std::mt19937 _random_engine;
+    std::uniform_int_distribution<int> _transformation_distribution;
+
+    std::vector<SearchNode *> _leaves;
+    std::vector<int> _transformations;
+    torch::Tensor _features_cpu;
+    torch::Tensor _features_device;
+    torch::Tensor _policy_cpu;
+    torch::Tensor _value_cpu;
 };
 
 } // namespace othello
