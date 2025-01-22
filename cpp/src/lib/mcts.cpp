@@ -171,7 +171,7 @@ othello::SearchThread::SearchThread(
     const MCTS *mcts,
     SearchNode *seach_tree,
     std::mutex *search_tree_mutex,
-    Queue<NeuralNetInput> *neural_net_input_queue
+    Queue<MCTSNeuralNetInput> *neural_net_input_queue
 )
     : _mcts(mcts),
       _search_tree(seach_tree),
@@ -208,9 +208,9 @@ void othello::SearchThread::run() {
     for (int i = 0; i < num_simulations; ++i) {
         _simulate_batch();
     }
-    _neural_net_input_queue->push(
-        NeuralNetInput{.features = _features_device, .output_queue = nullptr}
-    );
+    _neural_net_input_queue->push(MCTSNeuralNetInput{
+        .features = _features_device, .output_queue = nullptr
+    });
 }
 
 void othello::SearchThread::_simulate_batch() {
@@ -258,7 +258,7 @@ void othello::SearchThread::_simulate_batch() {
 
     if (!all_terminal) {
         _features_device.copy_(_features_cpu);
-        _neural_net_input_queue->push(NeuralNetInput{
+        _neural_net_input_queue->push(MCTSNeuralNetInput{
             .features = _features_device,
             .output_queue = &_neural_net_output_queue
         });

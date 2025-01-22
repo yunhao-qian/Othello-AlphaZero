@@ -176,7 +176,7 @@ private:
 
 /// @brief Input to the neural network.
 ///
-struct NeuralNetInput {
+struct MCTSNeuralNetInput {
     /// @brief Feature tensor of shape `(batch_size, feature_channels, 8, 8)`.
     ///
     torch::Tensor features;
@@ -200,7 +200,7 @@ public:
         const MCTS *mcts,
         SearchNode *seach_tree,
         std::mutex *search_tree_mutex,
-        Queue<NeuralNetInput> *neural_net_input_queue
+        Queue<MCTSNeuralNetInput> *neural_net_input_queue
     );
 
     /// @brief Runs the search thread.
@@ -230,7 +230,7 @@ private:
     const MCTS *_mcts;
     SearchNode *_search_tree;
     std::mutex *_search_tree_mutex;
-    Queue<NeuralNetInput> *_neural_net_input_queue;
+    Queue<MCTSNeuralNetInput> *_neural_net_input_queue;
     Queue<NeuralNetOutput> _neural_net_output_queue;
     std::mt19937 _random_engine;
     std::uniform_int_distribution<int> _transformation_distribution;
@@ -248,7 +248,7 @@ private:
 template <othello::NeuralNet T>
 void othello::MCTS::search(T &&neural_net) {
     std::mutex search_tree_mutex;
-    Queue<NeuralNetInput> neural_net_input_queue;
+    Queue<MCTSNeuralNetInput> neural_net_input_queue;
 
     std::size_t num_threads = static_cast<std::size_t>(_num_threads);
     std::vector<std::unique_ptr<SearchThread>> search_threads;
@@ -268,7 +268,7 @@ void othello::MCTS::search(T &&neural_net) {
 
     int num_running_threads = _num_threads;
     while (true) {
-        NeuralNetInput input = neural_net_input_queue.pop();
+        MCTSNeuralNetInput input = neural_net_input_queue.pop();
         if (input.output_queue == nullptr) {
             if (--num_running_threads == 0) {
                 break;
