@@ -5,8 +5,8 @@ This project replicates [the AlphaZero algorithm](https://arxiv.org/abs/1712.018
 While many open-source AlphaZero implementations exist, they often simplify the algorithm or lack performance optimization. This project aims to deliver a high-performance AlphaZero implementation specifically for Othello. Key features include:
 
 - Efficient bitwise board position representation and manipulation.
-- Multi-threaded C++ MCTS implementation.
-- PyTorch-based ResNet neural network architecture from the AlphaGo Zero paper.
+- Multi-threaded, batched MCTS implementation in C++.
+- PyTorch-based ResNet neural network architecture from the [AlphaGo Zero]((https://discovery.ucl.ac.uk/id/eprint/10045895/1/agz_unformatted_nature.pdf)) paper.
 - A training pipeline for self-play data generation and neural network training.
 - A CLI for playing games between humans, the AlphaZero agent, and third-party agents (e.g., Egaroucid).
 - A script for evaluating training progress using an Elo rating system variant.
@@ -14,13 +14,12 @@ While many open-source AlphaZero implementations exist, they often simplify the 
 Due to Othello's nature and resource limitations, this implementation differs from the original AlphaZero:
 
 - Neural network size and training volume are significantly reduced.
-- To compensate for the cost of generating self-play data, board symmetry is leveraged for 16x data augmentation (4 rotations × 2 flips × 2 color inversions).
-- Since legal moves in Othello depend only on the current board state and not on previous positions, our implementation simplifies the neural network input features by excluding historical positions.
+- To reduce the need for self-play data and accelerate training, we leverage the game's inherent symmetry, as outlined in the AlphaGo Zero paper. Self-play data is augmented eightfold using reflection and rotation, and random transformations are applied to board positions before neural network evaluation.
 - There is no resignation mechanism. Consequently, all self-play games are played to completion and included in the training process.
 
 ## Results
 
-With the optimized C++ MCTS implementation and a downscaled neural network, our setup achieves **27,200 MCTS simulations per second** on a 24-core CPU paired with an NVIDIA GeForce RTX 4090 GPU. Each action takes **30 milliseconds** on average for 816 simulations, enabling rapid self-play data generation.
+With the optimized C++ MCTS implementation and a downscaled neural network, our setup achieves **28,000 MCTS simulations per second** on a 24-core CPU paired with an NVIDIA GeForce RTX 4090 GPU. Each action takes less than **30 milliseconds** for 800 simulations, enabling rapid self-play data generation.
 
 Training and Evaluation: Results are pending and will be added upon completion.
 
@@ -53,19 +52,25 @@ Use the `othello-train` command to train an AlphaZero agent. The following examp
 
 ```bash
 othello-train \
+    --output-dir checkpoints \
+    --device cuda \
+    --pin-memory \
     --iterations 360 \
-    --self-play-games-per-iteration 500 \
-    --neural-net-feature-channels 128 \
+    --self-play-games-per-iteration 1000 \
+    --history-size 8 \
+    --neural-net-conv-channels 128 \
     --neural-net-residual-blocks 9 \
-    --neural-net-value-head-hidden-size 128 \
+    --neural-net-value-head-hidden-channels 128 \
     --optimizer-lr 0.02 \
     --lr-scheduler-milestones 60 120 \
     --lr-scheduler-gamma 0.1 \
-    --mcts-simulations 816 \
-    --mcts-batch-size 24 \
-    --mcts-threads 24 \
+    --mcts-simulations 800 \
+    --mcts-threads 2 \
+    --mcts-batch-size 16 \
+    --mcts-c-puct-base 20000.0 \
+    --mcts-c-puct-init 2.5 \
     --compile-neural-net \
-    --training-batch-size 32
+    --training-batch-size 256
 ```
 
 The script saves a checkpoint after each iteration in the directory specified by `--output-dir`. If training is interrupted, it can be resumed by providing the checkpoint directory using the `--from-checkpoint` option.
@@ -128,6 +133,14 @@ This section covers only a subset of the available options. For a full list, run
 othello-play --help
 ```
 
+### Evaluation
+
+The `othello_alphazero.evaluation` module offers utility functions to evaluate player performance. A command-line interface is not included, as designing one to suit all scenarios is challenging.
+
+The play_games() function simulates a series of games between randomly selected player pairs from a pool, recording the results (win, loss, or draw) in a JSON file. Since this process can be time-consuming, users can provide a callback function to report progress after each game pair.
+
+The `estimate_elo()` function calculates rough Elo ratings for players based on the recorded game outcomes. This implementation is simplified, so we recommend using the [BayesElo]((https://github.com/ddugovic/BayesianElo)) program for more accurate Elo rating calculations. BayesElo expects PGN files as input, which can be generated using the `save_pgn()` function.
+
 ## Implementation Details
 
 ### Board Position Representation and Manipulation
@@ -146,18 +159,18 @@ A further optimization involves using a contiguous vector to store search tree n
 
 ### Neural Network
 
-We use the same ResNet architecture as in [AlphaGo Zero](https://discovery.ucl.ac.uk/id/eprint/10045895/1/agz_unformatted_nature.pdf), implemented in PyTorch. However, given Othello's simpler rules and resource constraints, we downscale the network by reducing the number of feature channels from 256 to 128 and the residual blocks from 19 to 9, resulting in a total of 2.7 million parameters. Additionally, instead of using the last eight board positions, we simplify the input features to include only the current board state, reducing the input channels from 17 to 3.
+We use the same ResNet architecture as in AlphaGo Zero, implemented in PyTorch. However, given Othello's simpler rules and resource constraints, we downscale the network by reducing the number of feature channels from 256 to 128 and the residual blocks from 19 to 9, resulting in a total of 2.7 million parameters.
 
-During self-play, neural network inference batch size is limited by the number of search threads, leading to suboptimal GPU utilization. We found that `torch.compile()` significantly enhances GPU efficiency, nearly halving inference time. Therefore, we enable it whenever supported by the PyTorch version.
+During self-play, the neural network inference batch size must remain small because highly parallel MCTS searches can degrade result quality. However, this leads to suboptimal GPU utilization. To address this, we found that `torch.compile()` significantly enhances GPU efficiency, reducing inference time by nearly half. Therefore, we enable it whenever the PyTorch version supports this feature.
 
 ### Training Pipeline
 
 We lack the resources for a comprehensive hyperparameter search as conducted in the original paper. Instead, we performed small-scale experiments and selected the following hyperparameters:
 
 - 360 self-play and training iterations.
-- 500 self-play games per iteration, yielding approximately 480,000 training examples after data augmentation.
-- 816 MCTS simulations per action, distributed across 24 threads.
-- 32 batch size for neural network training, with self-play data trained for only one epoch.
+- 1000 self-play games per iteration, yielding approximately 480,000 training examples after data augmentation.
+- 800 MCTS simulations per action, with 2 threads and a batch size of 16.
+- 256 batch size for neural network training, with self-play data trained for only one epoch.
 - L2 weight regularization with a coefficient of 1e-4.
 - SGD optimizer with an initial learning rate of 0.02 and momentum of 0.9.
 - The learning rate decreases by a factor of 0.1 after 60 and 120 iterations.
@@ -166,15 +179,22 @@ We lack the resources for a comprehensive hyperparameter search as conducted in 
 
 We evaluate the relative strengths of agents by playing matches between randomly selected pairs from the following pool:
 
-- AlphaZero agents at different training iterations, with either 816 or 3216 MCTS simulations.
-- [Egaroucid](https://www.egaroucid.nyanyan.dev/en/), a strong open-source Othello engine, running in no-book mode at level 0.
-- Random player, making entirely random moves.
-- Greedy player, selecting moves that maximize the immediate number of flips.
+- AlphaZero agents after different training iterations, with 3200 MCTS simulations per action.
+- [Egaroucid](https://www.egaroucid.nyanyan.dev/en/), a strong open-source Othello engine, running in no-book mode at various levels.
 
-To estimate the Elo rating $e(\cdot)$ of each agent, we assume that the probability of agent $a$ defeating agent $b$ follows:
+To estimate the Elo rating $e(\cdot)$ of each agent, we assume that a game between two players $a$ (Black) and $b$ (White) has outcomes with the following probability distribution:
 
 $$
-P(a \text{ defeats } b) = \mathrm{sigmoid}(c_\mathrm{elo} (e(a) - e(b))), \quad c_\mathrm{elo} = \frac{1}{400} \text{.}
+\begin{cases}
+    P(a \text{ wins}) &= f(e(a) - e(b) + e_\text{advantage} - e_\text{draw}) \\
+    P(b \text{ wins}) &= f(e(b) - e(a) - e_\text{advantage} - e_\text{draw}) \\
+    P(\text{draw}) &= 1 - P(a \text{ wins}) - P(b \text{ wins})
+\end{cases} \text{,}
+$$
+$$
+\text{where } f(\Delta) = \frac{1}{1 + 10^{-\Delta / 400}} \text{.}
 $$
 
-We then use gradient descent to minimize the binary cross-entropy loss between observed game outcomes and predicted probabilities, with a small L2 regularization term to prevent overfitting.
+In the above equations, $e_\text{advantage}$ is a variable indicating the advantage of playing first (as Black), and $e_\text{draw}$ is a positive variable indicating how likely draws are. This estimation model is adapted from the [BayesElo website](https://www.remi-coulom.fr/Bayesian-Elo/).
+
+We then apply gradient descent to perform Maximum Likelihood Estimation (MLE) of the Elo ratings by minimizing the negative log-likelihood of the observed outcomes.

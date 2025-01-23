@@ -8,3 +8,4 @@ Main components:
 - `player.py`: Player classes for both human and agent players, along with a `play_game()` function for running a game between two players.
 - `train.py`: Script for training the AlphaZero agent.
 - `play.py`: Command-line script for playing games directly in the terminal.
+- `evaluation.py`: Utility functions for evaluating the performance of players.
