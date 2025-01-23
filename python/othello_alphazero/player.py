@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from othello_mcts import MCTS, Position
+from othello_mcts import MCTS, Position, get_flips
 
 from .neural_net import AlphaZeroNet
 
@@ -46,9 +46,9 @@ def play_game(player1: Player, player2: Player, quiet: bool) -> int:
     while True:
         if not quiet:
             print(position)
-            num_black_discs = position.num_p1_discs()
-            num_white_discs = position.num_p2_discs()
-            print(f"Black: {num_black_discs}, White: {num_white_discs}")
+            num_player1_discs = np.bitwise_count(np.uint64(position.player1_discs()))
+            num_player2_discs = np.bitwise_count(np.uint64(position.player2_discs()))
+            print(f"Black: {num_player1_discs}, White: {num_player2_discs}")
         if position.is_terminal():
             break
 
@@ -80,13 +80,13 @@ def play_game(player1: Player, player2: Player, quiet: bool) -> int:
 
     if not quiet:
         print("Game over")
-    num_black_discs = position.num_p1_discs()
-    num_white_discs = position.num_p2_discs()
-    if num_black_discs > num_white_discs:
+    num_player1_discs = np.bitwise_count(np.uint64(position.player1_discs()))
+    num_player2_discs = np.bitwise_count(np.uint64(position.player2_discs()))
+    if num_player1_discs > num_player2_discs:
         if not quiet:
             print("Black wins")
         return 1
-    if num_white_discs > num_black_discs:
+    if num_player2_discs > num_player1_discs:
         if not quiet:
             print("White wins")
         return 2
@@ -148,7 +148,19 @@ class GreedyPlayer(Player):
         if len(legal_actions) == 1:
             return legal_actions[0]
 
-        all_num_flips = [self.position.num_flips(action) for action in legal_actions]
+        def get_num_flips(action: int) -> int:
+            move_mask = 1 << (63 - action)
+            if self.position.player() == 1:
+                player_discs = self.position.player1_discs()
+                opponent_discs = self.position.player2_discs()
+            else:
+                player_discs = self.position.player2_discs()
+                opponent_discs = self.position.player1_discs()
+            return np.bitwise_count(
+                np.uint64(get_flips(move_mask, player_discs, opponent_discs))
+            )
+
+        all_num_flips = list(map(get_num_flips, legal_actions))
         max_num_flips = max(all_num_flips)
         best_actions = [
             action
@@ -168,26 +180,43 @@ class AlphaZeroPlayer(Player):
     def __init__(
         self,
         device: str,
+        pin_memory: bool,
         num_simulations: int,
-        batch_size: int,
         num_threads: int,
+        batch_size: int,
+        c_puct_base: float,
+        c_puct_init: float,
         checkpoint_dir: str | os.PathLike,
         compile_neural_net: bool,
+        compile_neural_net_backend: str,
         compile_neural_net_mode: str,
         quiet: bool,
     ) -> None:
-        self.mcts = MCTS(
-            torch_device=device,
-            num_simulations=num_simulations,
-            batch_size=batch_size,
-            num_threads=num_threads,
-            exploration_weight=0.0,
-            dirichlet_epsilon=0.0,
-        )
-
         checkpoint_dir = Path(checkpoint_dir)
-        with (checkpoint_dir / "config.json").open() as config_file:
+        with (checkpoint_dir / "config.json").open(encoding="utf-8") as config_file:
             config = json.load(config_file)
+
+        in_channels = config["neural_net"]["in_channels"]
+        if in_channels % 2 != 1:
+            raise ValueError(f"Expected in_channels to be odd, but got {in_channels}.")
+        history_size = (in_channels - 1) // 2
+        if history_size < 1:
+            raise ValueError(
+                f"Expected history_size to be positive, but got {history_size}."
+            )
+
+        self.mcts = MCTS(
+            history_size=history_size,
+            torch_device=device,
+            torch_pin_memory=pin_memory,
+            num_simulations=num_simulations,
+            num_threads=num_threads,
+            batch_size=batch_size,
+            c_puct_base=c_puct_base,
+            c_puct_init=c_puct_init,
+            dirichlet_epsilon=0.0,
+            dirichlet_alpha=0.5,
+        )
 
         self.neural_net = AlphaZeroNet(**config["neural_net"]).to(device)
         self.neural_net.load_state_dict(
@@ -205,25 +234,26 @@ class AlphaZeroPlayer(Player):
                 self.neural_net,
                 fullgraph=True,
                 dynamic=False,
+                backend=compile_neural_net_backend,
                 mode=compile_neural_net_mode,
             )
-            dummy_input = torch.zeros(
-                (min(batch_size, num_threads), 3, 8, 8), device=device
-            )
+            dummy_input = torch.zeros((batch_size, in_channels, 8, 8), device=device)
             self.neural_net(dummy_input)
 
         self.quiet = quiet
 
     def reset_position(self) -> None:
-        self.mcts.reset_position(Position.initial_position())
+        self.mcts.reset_position()
 
     def get_action(self) -> int:
-        search_result = self.mcts.search(self.neural_net)
-        action_index = np.argmax(search_result["visit_counts"])
-        action_value = search_result["mean_action_values"][action_index]
+        self.mcts.search(self.neural_net)
+        visit_counts = np.array(self.mcts.visit_counts())
+        best_action_indices = np.where(visit_counts == visit_counts.max())[0]
+        best_action_index = np.random.choice(best_action_indices)
         if not self.quiet:
-            print(f"Action value: {action_value:.3f}")
-        return search_result["actions"][action_index]
+            action_value = self.mcts.mean_action_values()[best_action_index]
+            print(f"Action-value: {action_value:.3f}")
+        return self.mcts.position().legal_actions()[best_action_index]
 
     def apply_action(self, action: int) -> None:
         self.mcts.apply_action(action)
@@ -235,7 +265,7 @@ class EgaroucidPlayer(Player):
     def __init__(
         self, egaroucid_exe: str | os.PathLike, level: int, num_threads: int
     ) -> None:
-        self.egaroucid_exe = str(egaroucid_exe)
+        self.egaroucid_path = Path(egaroucid_exe).resolve()
         self.level = level
         self.num_threads = num_threads
 
@@ -250,15 +280,14 @@ class EgaroucidPlayer(Player):
             return legal_actions[0]
 
         with tempfile.NamedTemporaryFile("w+") as problem_file:
-            for row in range(8):
-                for col in range(8):
-                    status = self.position(row, col)
-                    if status == 1:
-                        problem_file.write("B")
-                    elif status == 2:
-                        problem_file.write("W")
-                    else:
-                        problem_file.write(".")
+            for index in range(64):
+                status = self.position[index]
+                if status == 1:
+                    problem_file.write("B")
+                elif status == 2:
+                    problem_file.write("W")
+                else:
+                    problem_file.write(".")
             if self.position.player() == 1:
                 problem_file.write("B")
             else:
@@ -268,7 +297,7 @@ class EgaroucidPlayer(Player):
 
             output = subprocess.run(
                 [
-                    self.egaroucid_exe,
+                    f"./{self.egaroucid_path.name}",
                     "-level",
                     str(self.level),
                     "-nobook",
@@ -277,6 +306,7 @@ class EgaroucidPlayer(Player):
                     "-solve",
                     problem_file.name,
                 ],
+                cwd=self.egaroucid_path.parent,
                 capture_output=True,
                 check=True,
                 text=True,

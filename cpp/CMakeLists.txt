@@ -4,6 +4,16 @@ cmake_minimum_required(VERSION 3.15...3.29)
 # Set up the project and ensure there is a working C++ compiler.
 project(othello_mcts LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+if (MSVC)
+    add_compile_options(/W4)
+else()
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
 set(PYBIND11_FINDPYTHON ON)
 find_package(pybind11 CONFIG REQUIRED)
 
@@ -18,8 +28,7 @@ pybind11_add_module(
     # Source code goes here.
     src/lib/mcts.cpp
     src/lib/othello_mcts.cpp
-    src/lib/position.cpp
-    src/lib/utility.cpp
+    src/lib/search_thread.cpp
 )
 target_include_directories(_othello_mcts_impl PRIVATE src/include)
 

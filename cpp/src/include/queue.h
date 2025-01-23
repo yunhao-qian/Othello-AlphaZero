@@ -1,5 +1,5 @@
 /// @file queue.h
-/// @brief Implementation of a multi-threaded queue.
+/// @brief Multi-threaded queue.
 
 #ifndef OTHELLO_MCTS_QUEUE_H
 #define OTHELLO_MCTS_QUEUE_H

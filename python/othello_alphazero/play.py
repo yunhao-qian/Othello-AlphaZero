@@ -47,6 +47,11 @@ def main() -> None:
         help="device for the AlphaZero player (default: cuda if available, else cpu)",
     )
     parser.add_argument(
+        "--alphazero-pin-memory",
+        action="store_true",
+        help="use pinned memory for the AlphaZero player (default: False)",
+    )
+    parser.add_argument(
         "--alphazero-simulations",
         type=int,
         default=800,
@@ -65,16 +70,52 @@ def main() -> None:
         help="override alphazero-simulations for player 2",
     )
     parser.add_argument(
+        "--alphazero-threads",
+        type=int,
+        default=2,
+        help="number of threads for the AlphaZero player (default: 2)",
+    )
+    parser.add_argument(
         "--alphazero-batch-size",
         type=int,
         default=16,
         help="batch size for the AlphaZero player (default: 16)",
     )
     parser.add_argument(
-        "--alphazero-threads",
-        type=int,
-        default=24,
-        help="number of threads for the AlphaZero player (default: 24)",
+        "--alphazero-c-puct-base",
+        type=float,
+        default=20000.0,
+        help="c_puct_base for the AlphaZero player (default: 1.0)",
+    )
+    parser.add_argument(
+        "--alphazero-c-puct-base-player1",
+        type=float,
+        default=None,
+        help="override alphazero-c-puct-base for player 1",
+    )
+    parser.add_argument(
+        "--alphazero-c-puct-base-player2",
+        type=float,
+        default=None,
+        help="override alphazero-c-puct-base for player 2",
+    )
+    parser.add_argument(
+        "--alphazero-c-puct-init",
+        type=float,
+        default=2.5,
+        help="c_puct_init for the AlphaZero player (default: 2.5)",
+    )
+    parser.add_argument(
+        "--alphazero-c-puct-init-player1",
+        type=float,
+        default=None,
+        help="override alphazero-c-puct-init for player 1",
+    )
+    parser.add_argument(
+        "--alphazero-c-puct-init-player2",
+        type=float,
+        default=None,
+        help="override alphazero-c-puct-init for player 2",
     )
     parser.add_argument(
         "--alphazero-checkpoint",
@@ -98,6 +139,11 @@ def main() -> None:
         "--alphazero-compile-neural-net",
         action="store_true",
         help="compile the neural net for the AlphaZero player",
+    )
+    parser.add_argument(
+        "--alphazero-compile-neural-net-backend",
+        default="inductor",
+        help="compilation backend for the AlphaZero player (default: indutor)",
     )
     parser.add_argument(
         "--alphazero-compile-neural-net-mode",
@@ -177,13 +223,33 @@ def _create_player(args: Namespace, player: int) -> Player:
         if checkpoint_dir is None:
             raise ValueError("AlphaZero checkpoint directory not specified")
 
+        c_puct_base = (
+            args.alphazero_c_puct_base_player1
+            if player == 1
+            else args.alphazero_c_puct_base_player2
+        )
+        if c_puct_base is None:
+            c_puct_base = args.alphazero_c_puct_base
+
+        c_puct_init = (
+            args.alphazero_c_puct_init_player1
+            if player == 1
+            else args.alphazero_c_puct_init_player2
+        )
+        if c_puct_init is None:
+            c_puct_init = args.alphazero_c_puct_init
+
         return AlphaZeroPlayer(
             device=device,
+            pin_memory=args.alphazero_pin_memory,
             num_simulations=num_simulations,
-            batch_size=args.alphazero_batch_size,
             num_threads=args.alphazero_threads,
+            batch_size=args.alphazero_batch_size,
+            c_puct_base=c_puct_base,
+            c_puct_init=c_puct_init,
             checkpoint_dir=checkpoint_dir,
             compile_neural_net=args.alphazero_compile_neural_net,
+            compile_neural_net_backend=args.alphazero_compile_neural_net_backend,
             compile_neural_net_mode=args.alphazero_compile_neural_net_mode,
             quiet=False,
         )

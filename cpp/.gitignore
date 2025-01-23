@@ -5,3 +5,6 @@ CMakeFiles
 
 # Caffe2 expects the NVTX header files to be in this directory.
 third_party
+
+# Doxygen
+docs

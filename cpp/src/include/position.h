@@ -1,135 +1,458 @@
 /// @file position.h
-/// @brief Declaration of the Othello game logic.
+/// @brief Othello game logic.
 
 #ifndef OTHELLO_MCTS_POSITION_H
 #define OTHELLO_MCTS_POSITION_H
 
+#include <array>
+#include <bit>
+#include <bitset>
+#include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace othello {
 
-/// @brief Position of an Othello game.
-///
-class Position {
-public:
-    /// @brief Returns the initial position of a game.
-    /// @return Initial position.
-    static Position initial_position() noexcept;
-
-    /// @brief Returns the legal actions of the current player.
-    /// @return Vector of legal actions.
-    std::vector<int> legal_actions() const;
-
-    /// @brief Applies an action to the current position and returns the new
-    ///     position.
-    /// @param action Action to apply.
-    /// @return New position.
-    Position apply_action(int action) const noexcept;
-
-    /// @brief Returns whether the position is a terminal position.
-    /// @return True if the position is terminal, false otherwise.
-    bool is_terminal() const noexcept {
-        return _player == 0;
-    }
-
-    /// @brief Returns the action value of the position for Player 1.
-    /// @return 1.0 if Player 1 wins, -1.0 if Player 2 wins, 0.0 if draw.
-    float action_value() const noexcept;
-
-    /// @brief Creates a feature vector of the position for neural nets.
-    /// @return Flat vector of 3x8x8 features.
-    std::vector<float> to_features() const;
-
-    /// @brief Returns the current player.
-    /// @return 1 if black, 2 if white, 0 if the game is over.
-    int player() const noexcept {
-        return _player;
-    }
-
-    /// @brief Returns the status of a square.
-    /// @param index Flat index of the square.
-    /// @return 1 if black disc, 2 if white disc, 0 if empty, -1 if out of
-    ///     bounds.
-    int operator()(int index) const noexcept;
-
-    /// @brief Returns the status of a square.
-    /// @param row Row of the square.
-    /// @param col Column of the square.
-    /// @return 1 if black disc, 2 if white disc, 0 if empty, -1 if out of
-    ///     bounds.
-    int operator()(int row, int col) const noexcept;
-
-    /// @brief Returns whether the given square is a legal move.
-    /// @param index Flat index of the square.
-    /// @return True if the square is a legal move, false otherwise.
-    bool is_legal_move(int index) const noexcept;
-
-    /// @brief Returns whether the given square is a legal move.
-    /// @param row Row of the square.
-    /// @param col Column of the square.
-    /// @return True if the square is a legal move, false otherwise.
-    bool is_legal_move(int row, int col) const noexcept;
-
-    /// @brief Returns the number of discs of Black.
-    /// @return Number of discs of Black.
-    int num_p1_discs() const noexcept;
-
-    /// @brief Returns the number of discs of White.
-    /// @return Number of discs of White.
-    int num_p2_discs() const noexcept;
-
-    /// @brief Returns the number of discs flipped by a move.
-    /// @param action Action to apply.
-    /// @return Number of discs flipped by the move, or 0 if the action is a
-    ///     pass or illegal.
-    int num_flips(int action) const noexcept;
-
-    /// @brief Creates a string representation of the position.
-    /// @return String representation.
-    std::string to_string() const;
-
-private:
-    Position(
-        int player,
-        std::uint64_t p1_discs,
-        std::uint64_t p2_discs,
-        std::uint64_t legal_moves,
-        std::uint64_t next_legal_moves
-    ) noexcept
-        : _player(player),
-          _p1_discs(p1_discs),
-          _p2_discs(p2_discs),
-          _legal_moves(legal_moves),
-          _next_legal_moves(next_legal_moves) {}
-
-    int _player;
-    std::uint64_t _p1_discs;
-    std::uint64_t _p2_discs;
-    std::uint64_t _legal_moves;
-    std::uint64_t _next_legal_moves;
-};
-
-/// @brief Returns the legal moves of the current player.
+/// @brief Gets the legal moves of the current player.
 /// @param player_discs Discs of the current player.
 /// @param opponent_discs Discs of the opponent player.
-/// @return Mask of legal moves.
-std::uint64_t get_legal_moves(
+/// @return Bitboard of legal moves.
+constexpr std::uint64_t get_legal_moves(
     std::uint64_t player_discs, std::uint64_t opponent_discs
 ) noexcept;
 
-/// @brief Returns the discs flipped by a move.
-/// @param move_mask Mask of the move.
+/// @brief Gets the discs flipped by a move.
+/// @param move_mask Bit mask of the move.
 /// @param player_discs Discs of the current player.
 /// @param opponent_discs Discs of the opponent player.
-/// @return Mask of flipped discs.
-std::uint64_t get_flips(
+/// @return Bitboard of flipped discs.
+constexpr std::uint64_t get_flips(
     std::uint64_t move_mask,
     std::uint64_t player_discs,
     std::uint64_t opponent_discs
 ) noexcept;
 
+/// @brief Position of an Othello game.
+///
+class Position {
+public:
+    /// @brief Gets the initial position of a game.
+    /// @return Initial position.
+    static constexpr Position initial_position() noexcept;
+
+    /// @brief Gets the current player.
+    /// @return 1 if Black, 2 if White, 0 if the position is terminal.
+    constexpr int player() const noexcept {
+        return _player;
+    }
+
+    /// @brief Gets the discs of the Black player.
+    /// @return Bitboard of black discs.
+    constexpr std::uint64_t player1_discs() const noexcept {
+        return _player1_discs;
+    }
+
+    /// @brief Gets the discs of the White player.
+    /// @return Bitboard of white discs.
+    constexpr std::uint64_t player2_discs() const noexcept {
+        return _player2_discs;
+    }
+
+    /// @brief Gets the status of a square.
+    /// @param index Flat index of the square.
+    /// @return 1 if black, 2 if white, 0 if empty.
+    constexpr int operator[](int index) const noexcept;
+
+    /// @brief Checked version of Position::operator[].
+    ///
+    constexpr int at(int index) const;
+
+    /// @brief Gets the legal moves of the current player.
+    /// @return Bitboard of legal moves.
+    constexpr std::uint64_t legal_moves() const noexcept {
+        return _legal_moves;
+    }
+
+    /// @brief Queries whether a move is legal.
+    /// @param index Flat index of the move.
+    /// @return True if the move is legal, false otherwise.
+    constexpr bool is_legal_move(int index) const noexcept;
+
+    /// @brief Checked version of Position::is_legal_move.
+    ///
+    constexpr bool is_legal_move_checked(int index) const;
+
+    /// @brief Gets the legal actions of the current player.
+    /// @return Vector of legal actions.
+    constexpr std::vector<int> legal_actions() const;
+
+    /// @brief Applies a move to the current position and returns the new
+    ///     position.
+    /// @param move_mask Bit mask of the move.
+    /// @return New position.
+    constexpr Position apply_move(std::uint64_t move_mask) const noexcept;
+
+    /// @brief Checked version of Position::apply_move.
+    ///
+    constexpr Position apply_move_checked(std::uint64_t move_mask) const;
+
+    /// @brief Applies a pass to the current position and returns the new
+    ///     position.
+    /// @return New position.
+    constexpr Position apply_pass() const noexcept;
+
+    /// @brief Checked version of Position::apply_pass.
+    ///
+    constexpr Position apply_pass_checked() const;
+
+    /// @brief Applies an action to the current position and returns the new
+    ///     position.
+    /// @param action Action to apply.
+    /// @return New position.
+    constexpr Position apply_action(int action) const noexcept;
+
+    /// @brief Checked version of Position::apply_action.
+    ///
+    constexpr Position apply_action_checked(int action) const;
+
+    /// @brief Queries whether the position is terminal.
+    /// @return True if the position is terminal, false otherwise.
+    constexpr bool is_terminal() const noexcept {
+        return _player == 0;
+    }
+
+    /// @brief Gets the string representation of the position.
+    /// @return String representation.
+    inline std::string to_string() const;
+
+private:
+    constexpr Position(
+        int player,
+        std::uint64_t player1_discs,
+        std::uint64_t player2_discs,
+        std::uint64_t legal_moves,
+        std::uint64_t next_legal_moves
+    ) noexcept
+        : _player(player),
+          _player1_discs(player1_discs),
+          _player2_discs(player2_discs),
+          _legal_moves(legal_moves),
+          _next_legal_moves(next_legal_moves) {}
+
+    int _player;
+    std::uint64_t _player1_discs;
+    std::uint64_t _player2_discs;
+    std::uint64_t _legal_moves;
+    std::uint64_t _next_legal_moves;
+};
+
+namespace internal {
+
+constexpr std::array<int, 8> STRIDES = {-9, -8, -7, -1, 1, 7, 8, 9};
+
+constexpr std::uint64_t MASK_NO_LEFT_RIGHT =
+    0b01111110'01111110'01111110'01111110'01111110'01111110'01111110'01111110;
+
+constexpr std::uint64_t MASK_NO_TOP_BOTTOM =
+    0b00000000'11111111'11111111'11111111'11111111'11111111'11111111'00000000;
+
+constexpr std::uint64_t MASK_NO_EDGES = MASK_NO_LEFT_RIGHT & MASK_NO_TOP_BOTTOM;
+
+constexpr std::array<std::uint64_t, 8> MASKS = {
+    MASK_NO_EDGES,
+    MASK_NO_TOP_BOTTOM,
+    MASK_NO_EDGES,
+    MASK_NO_LEFT_RIGHT,
+    MASK_NO_LEFT_RIGHT,
+    MASK_NO_EDGES,
+    MASK_NO_TOP_BOTTOM,
+    MASK_NO_EDGES
+};
+
+template <int Direction>
+constexpr std::uint64_t shift(std::uint64_t mask) noexcept {
+    constexpr int stride = STRIDES[Direction];
+    if constexpr (stride > 0) {
+        return mask >> stride;
+    } else if constexpr (stride < 0) {
+        return mask << -stride;
+    } else {
+        return mask;
+    }
+}
+
+template <int Direction>
+constexpr std::uint64_t get_potential_flips_in_direction(
+    std::uint64_t player_discs, std::uint64_t opponent_discs
+) noexcept {
+    opponent_discs &= MASKS[Direction];
+    std::uint64_t flips = opponent_discs & shift<Direction>(player_discs);
+    for (int i = 0; i < 5; ++i) {
+        flips |= opponent_discs & shift<Direction>(flips);
+    }
+    return flips;
+}
+
+} // namespace internal
+
 } // namespace othello
+
+constexpr std::uint64_t othello::get_legal_moves(
+    std::uint64_t player_discs, std::uint64_t opponent_discs
+) noexcept {
+    std::uint64_t legal_moves = 0;
+
+#define OTHELLO_MCTS_CHECK_DIRECTION(Direction)                                \
+    do {                                                                       \
+        std::uint64_t potential_flips =                                        \
+            internal::get_potential_flips_in_direction<Direction>(             \
+                player_discs, opponent_discs                                   \
+            );                                                                 \
+        legal_moves |= internal::shift<Direction>(potential_flips);            \
+    } while (false)
+
+    OTHELLO_MCTS_CHECK_DIRECTION(0);
+    OTHELLO_MCTS_CHECK_DIRECTION(1);
+    OTHELLO_MCTS_CHECK_DIRECTION(2);
+    OTHELLO_MCTS_CHECK_DIRECTION(3);
+    OTHELLO_MCTS_CHECK_DIRECTION(4);
+    OTHELLO_MCTS_CHECK_DIRECTION(5);
+    OTHELLO_MCTS_CHECK_DIRECTION(6);
+    OTHELLO_MCTS_CHECK_DIRECTION(7);
+
+#undef OTHELLO_MCTS_CHECK_DIRECTION
+
+    legal_moves &= ~(player_discs | opponent_discs);
+    return legal_moves;
+}
+
+constexpr std::uint64_t othello::get_flips(
+    std::uint64_t move_mask,
+    std::uint64_t player_discs,
+    std::uint64_t opponent_discs
+) noexcept {
+    std::uint64_t flips = 0;
+
+#define OTHELLO_MCTS_CHECK_DIRECTION(Direction)                                \
+    do {                                                                       \
+        std::uint64_t potential_flips =                                        \
+            internal::get_potential_flips_in_direction<Direction>(             \
+                move_mask, opponent_discs                                      \
+            );                                                                 \
+        if ((internal::shift<Direction>(potential_flips) & player_discs) !=    \
+            0) {                                                               \
+            flips |= potential_flips;                                          \
+        }                                                                      \
+    } while (false)
+
+    OTHELLO_MCTS_CHECK_DIRECTION(0);
+    OTHELLO_MCTS_CHECK_DIRECTION(1);
+    OTHELLO_MCTS_CHECK_DIRECTION(2);
+    OTHELLO_MCTS_CHECK_DIRECTION(3);
+    OTHELLO_MCTS_CHECK_DIRECTION(4);
+    OTHELLO_MCTS_CHECK_DIRECTION(5);
+    OTHELLO_MCTS_CHECK_DIRECTION(6);
+    OTHELLO_MCTS_CHECK_DIRECTION(7);
+
+#undef OTHELLO_MCTS_CHECK_DIRECTION
+
+    return flips;
+}
+
+constexpr othello::Position othello::Position::initial_position() noexcept {
+    constexpr std::uint64_t player1_discs =
+        0b00000000'00000000'00000000'00001000'00010000'00000000'00000000'00000000;
+    constexpr std::uint64_t player2_discs =
+        0b00000000'00000000'00000000'00010000'00001000'00000000'00000000'00000000;
+    constexpr std::uint64_t legal_moves =
+        get_legal_moves(player1_discs, player2_discs);
+    return Position(1, player1_discs, player2_discs, legal_moves, 0);
+}
+
+constexpr int othello::Position::operator[](int index) const noexcept {
+    std::uint64_t square_mask = std::uint64_t(1) << (63 - index);
+    if ((_player1_discs & square_mask) != 0) {
+        return 1;
+    }
+    if ((_player2_discs & square_mask) != 0) {
+        return 2;
+    }
+    return 0;
+}
+
+constexpr int othello::Position::at(int index) const {
+    if (!(0 <= index && index < 64)) {
+        throw std::out_of_range(
+            "Expected 0 <= index < 64, but got " + std::to_string(index) + "."
+        );
+    }
+    return (*this)[index];
+}
+
+constexpr bool othello::Position::is_legal_move(int index) const noexcept {
+    std::uint64_t move_mask = std::uint64_t(1) << (63 - index);
+    return (_legal_moves & move_mask) != 0;
+}
+
+constexpr bool othello::Position::is_legal_move_checked(int index) const {
+    if (!(0 <= index && index < 64)) {
+        throw std::out_of_range(
+            "Expected 0 <= index < 64, but got " + std::to_string(index) + "."
+        );
+    }
+    return is_legal_move(index);
+}
+
+constexpr std::vector<int> othello::Position::legal_actions() const {
+    if (is_terminal()) {
+        return {};
+    }
+    if (_legal_moves == 0) {
+        return {64};
+    }
+
+    std::vector<int> actions;
+    actions.reserve(static_cast<std::size_t>(std::popcount(_legal_moves)));
+    std::uint64_t move_mask = std::uint64_t(1) << 63;
+    for (int action = 0; action < 64; ++action) {
+        if ((move_mask & _legal_moves) != 0) {
+            actions.push_back(action);
+        }
+        move_mask >>= 1;
+    }
+    return actions;
+}
+
+constexpr othello::Position
+othello::Position::apply_move(std::uint64_t move_mask) const noexcept {
+    int player = 3 - _player;
+    std::uint64_t player1_discs = _player1_discs;
+    std::uint64_t player2_discs = _player2_discs;
+    std::uint64_t legal_moves;
+    std::uint64_t next_legal_moves = 0;
+
+    std::uint64_t *player_discs;
+    std::uint64_t *opponent_discs;
+    if (_player == 1) {
+        player_discs = &player1_discs;
+        opponent_discs = &player2_discs;
+    } else {
+        player_discs = &player2_discs;
+        opponent_discs = &player1_discs;
+    }
+
+    std::uint64_t flips = get_flips(move_mask, *player_discs, *opponent_discs);
+    *player_discs |= move_mask | flips;
+    *opponent_discs &= ~flips;
+    legal_moves = get_legal_moves(*opponent_discs, *player_discs);
+
+    if (legal_moves == 0) {
+        // The next player has no legal moves. If the current player has no
+        // legal moves either, the game is over.
+        next_legal_moves = get_legal_moves(*player_discs, *opponent_discs);
+        if (next_legal_moves == 0) {
+            player = 0;
+        }
+    }
+
+    return Position(
+        player, player1_discs, player2_discs, legal_moves, next_legal_moves
+    );
+}
+
+constexpr othello::Position
+othello::Position::apply_move_checked(std::uint64_t move_mask) const {
+    if (std::popcount(move_mask) != 1) {
+        throw std::invalid_argument(
+            "Expected a single bit in move_mask, but got 0b" +
+            std::bitset<64>(move_mask).to_string() + "."
+        );
+    }
+    if ((move_mask & _legal_moves) == 0) {
+        throw std::invalid_argument(
+            "0b" + std::bitset<64>(move_mask).to_string() +
+            " is not a legal move."
+        );
+    }
+    return apply_move(move_mask);
+}
+
+constexpr othello::Position othello::Position::apply_pass() const noexcept {
+    return Position(
+        3 - _player, _player1_discs, _player2_discs, _next_legal_moves, 0
+    );
+}
+
+constexpr othello::Position othello::Position::apply_pass_checked() const {
+    if (is_terminal()) {
+        throw std::invalid_argument(
+            "Pass is not allowed in a terminal position."
+        );
+    }
+    if (_legal_moves != 0) {
+        throw std::invalid_argument(
+            "Pass is not allowed when there are legal moves."
+        );
+    }
+    return apply_pass();
+}
+
+constexpr othello::Position othello::Position::apply_action(int action
+) const noexcept {
+    if (action == 64) {
+        return apply_pass();
+    }
+    return apply_move(std::uint64_t(1) << (63 - action));
+}
+
+constexpr othello::Position othello::Position::apply_action_checked(int action
+) const {
+    if (!(0 <= action && action < 65)) {
+        throw std::out_of_range(
+            "Expected 0 <= action < 65, but got " + std::to_string(action) + "."
+        );
+    }
+    if (action == 64) {
+        return apply_pass_checked();
+    }
+    std::uint64_t move_mask = std::uint64_t(1) << (63 - action);
+    if ((move_mask & _legal_moves) == 0) {
+        throw std::invalid_argument(
+            std::to_string(action) + " is not a legal action."
+        );
+    }
+    return apply_move(move_mask);
+}
+
+inline std::string othello::Position::to_string() const {
+    std::string result;
+    result.reserve(9 * 18 - 1);
+    result.append("  a b c d e f g h\n");
+    std::uint64_t move_mask = std::uint64_t(1) << 63;
+    for (int row = 0; row < 8; ++row) {
+        result.push_back(static_cast<char>('1' + row));
+        for (int col = 0; col < 8; ++col) {
+            result.push_back(' ');
+            const char *square;
+            if (move_mask & _player1_discs) {
+                square = "\u25cf"; // Black Circle
+            } else if (move_mask & _player2_discs) {
+                square = "\u25cb"; // White Circle
+            } else if (move_mask & _legal_moves) {
+                square = "\u00d7"; // Multiplication Sign
+            } else {
+                square = "\u00b7"; // Middle Dot
+            }
+            result.append(square);
+            move_mask >>= 1;
+        }
+        if (row < 7) {
+            result.push_back('\n');
+        }
+    }
+    return result;
+}
 
 #endif // OTHELLO_MCTS_POSITION_H
