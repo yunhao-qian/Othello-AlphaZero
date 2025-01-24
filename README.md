@@ -11,17 +11,33 @@ While many open-source AlphaZero implementations exist, they often simplify the 
 - A CLI for playing games between humans, the AlphaZero agent, and third-party agents (e.g., Egaroucid).
 - A script for evaluating training progress using an Elo rating system variant.
 
-Due to Othello's nature and resource limitations, this implementation differs from the original AlphaZero:
+Due to Othello's nature and resource limitations, this implementation differs from the original AlphaZero in several ways:
 
-- Neural network size and training volume are significantly reduced.
 - To reduce the need for self-play data and accelerate training, we leverage the game's inherent symmetry, as outlined in the AlphaGo Zero paper. Self-play data is augmented eightfold using reflection and rotation, and random transformations are applied to board positions before neural network evaluation.
 - There is no resignation mechanism. Consequently, all self-play games are played to completion and included in the training process.
 
 ## Results
 
-With the optimized C++ MCTS implementation and a downscaled neural network, our setup achieves **28,000 MCTS simulations per second** on a 24-core CPU paired with an NVIDIA GeForce RTX 4090 GPU. Each action takes less than **30 milliseconds** for 800 simulations, enabling rapid self-play data generation.
+### 128x10b ResNet
 
-Training and Evaluation: Results are pending and will be added upon completion.
+In this experiment, we use a downscaled version of the AlphaGo Zero ResNet with 2.7 million parameters, consisting of 1 convolutional block followed by 9 residual blocks. All convolutional layers, as well as the hidden layer in the value head, are configured with 128 channels. The neural network is trained over 180 iterations, starting with an initial learning rate of 0.02, which is reduced by a factor of 0.1 at the 60th and 120th iterations. Each self-play and training iteration generates 1,000 games, resulting in approximately 480,000 training examples after applying data augmentation.
+
+Leveraging an optimized C++ MCTS implementation alongside the downscaled neural network, our setup achieves an impressive **28,000 MCTS simulations per second** on a 24-core CPU and an NVIDIA GeForce RTX 4090 GPU, and each action takes less than 30 milliseconds for 800 MCTS simulations. Each self-play and training iteration completes in about 30 minutes, and the entire training process spans roughly 4 days. While the model is not trained to its maximum potential, we intentionally stop training early to save time for other tasks.
+
+The following two figures depict the loss over training iterations. They highlight that while the loss decreases rapidly at the start and after each reduction in the learning rate, it quickly plateaus thereafter. Notably, only the L2 regularization term continues to decline steadily. However, this plateau does not necessarily mean the model has stopped improving because:
+
+- The loss signal is noisy and relatively weak due to techniques designed to encourage exploration, such as Dirichlet noise and a high PUCT exploration rate in MCTS.
+- The distributions of policy and value predictions are moving targets that shift as the model improves, meaning the loss does not directly correlate with the model's overall strength.
+
+![Loss curve for the 128x10b model (stacked)](./images/128x10b_loss_vs_iteration_stacked.svg)
+
+![Loss curve for the 128x10b model (split)](./images/128x10b_loss_vs_iteration_split.svg)
+
+In contrast, the Elo rating provides a clearer indication of progress. We evaluate the agent's performance against the Egaroucid engine at various levels. To estimate Elo ratings, we conduct pairwise matches between all possible combinations of players, record the outcomes, and calculate the rating for each player. The following figure demonstrates how the agent's Elo rating evolves over training iterations. Although the curve is noisy, it consistently trends upward with a significant slope, indicating that the agent is learning and improving, even as the loss curve has plateaued and the learning rate has reached very low levels.
+
+![Relative Elo rating over training iterations](./images/128x10b_elo_vs_iteration.svg)
+
+The AlphaZero agent is still much weaker than the higher levels of the Egaroucid engine. However, it consistently outperforms amateur players. From my experience playing a few games against Egaroucid, I estimate my skill level to be between level 1 and level 2. Remarkably, AlphaZero achieves a 400 Elo rating advantage over me while using just 0.1 seconds per action.
 
 ## Installation
 
@@ -55,7 +71,7 @@ othello-train \
     --output-dir checkpoints \
     --device cuda \
     --pin-memory \
-    --iterations 360 \
+    --iterations 180 \
     --self-play-games-per-iteration 1000 \
     --history-size 8 \
     --neural-net-conv-channels 128 \
@@ -159,7 +175,7 @@ A further optimization involves using a contiguous vector to store search tree n
 
 ### Neural Network
 
-We use the same ResNet architecture as in AlphaGo Zero, implemented in PyTorch. However, given Othello's simpler rules and resource constraints, we downscale the network by reducing the number of feature channels from 256 to 128 and the residual blocks from 19 to 9, resulting in a total of 2.7 million parameters.
+We use the same ResNet architecture as in AlphaGo Zero, implemented in PyTorch. However, given Othello's simpler rules and resource constraints, we downscale the network by reducing the number of feature channels and residual blocks.
 
 During self-play, the neural network inference batch size must remain small because highly parallel MCTS searches can degrade result quality. However, this leads to suboptimal GPU utilization. To address this, we found that `torch.compile()` significantly enhances GPU efficiency, reducing inference time by nearly half. Therefore, we enable it whenever the PyTorch version supports this feature.
 
@@ -167,13 +183,10 @@ During self-play, the neural network inference batch size must remain small beca
 
 We lack the resources for a comprehensive hyperparameter search as conducted in the original paper. Instead, we performed small-scale experiments and selected the following hyperparameters:
 
-- 360 self-play and training iterations.
-- 1000 self-play games per iteration, yielding approximately 480,000 training examples after data augmentation.
 - 800 MCTS simulations per action, with 2 threads and a batch size of 16.
-- 256 batch size for neural network training, with self-play data trained for only one epoch.
+- Self-play data is trained for only one epoch.
 - L2 weight regularization with a coefficient of 1e-4.
 - SGD optimizer with an initial learning rate of 0.02 and momentum of 0.9.
-- The learning rate decreases by a factor of 0.1 after 60 and 120 iterations.
 
 ### Evaluation
 
