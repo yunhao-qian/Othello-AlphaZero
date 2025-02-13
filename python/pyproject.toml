@@ -1,0 +1,10 @@
+[build-system]
+requires = ["scikit-build-core"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "othello-alphazero"
+version = "2025.2.0"
+
+[tool.scikit-build]
+build.verbose = true
