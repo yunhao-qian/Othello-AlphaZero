@@ -97,7 +97,7 @@ private:
     float m_dirichlet_epsilon;
     float m_dirichlet_alpha;
 
-    std::array<float, 60> m_dirichlet_noise;
+    std::array<float, 33> m_dirichlet_noise;
 };
 
 template <bool VirtualLoss>

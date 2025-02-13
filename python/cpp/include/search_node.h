@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <vector>
 
-#include <boost/container/small_vector.hpp>
+#include <boost/container/static_vector.hpp>
 
 #include "position.h"
 
@@ -34,8 +34,10 @@ struct SearchNode {
 
     /**
      * @brief Indices of the child nodes.
+     * @note The maximum number of legal actions is 33 according to this paper:
+     *     https://jxiv.jst.go.jp/index.php/jxiv/preprint/view/480/1498.
      */
-    boost::container::small_vector<std::uint32_t, 8> child_indices = {};
+    boost::container::static_vector<std::uint32_t, 33> child_indices = {};
 
     /**
      * @brief Visit count of the preceding edge.

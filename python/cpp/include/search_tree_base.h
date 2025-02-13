@@ -144,7 +144,7 @@ private:
     std::vector<SearchNode> m_nodes;
     std::uint32_t m_root_index;
 
-    std::array<int, 60> m_legal_actions;
+    std::array<int, 33> m_legal_actions;
 };
 
 }  // namespace othello
