@@ -24,7 +24,7 @@ constexpr int transform_action(const int action, const int transformation) noexc
         col = 7 - col;
     }
     const int num_rotations = transformation / 2;
-    for (const int i : std::views::iota(0, num_rotations)) {
+    for ([[maybe_unused]] const int i : std::views::iota(0, num_rotations)) {
         std::tie(row, col) = std::make_tuple(col, 7 - row);
     }
     return row * 8 + col;

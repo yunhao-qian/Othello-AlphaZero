@@ -55,6 +55,7 @@ void othello::SearchTreeBase::apply_action(const int action) {
         m_nodes.push_back(SearchNode{
             .position = root.position.apply_action(action),
             .parent_index = m_root_index,
+            .prior_probability = 1.f
         });
         ++m_root_index;
         return;

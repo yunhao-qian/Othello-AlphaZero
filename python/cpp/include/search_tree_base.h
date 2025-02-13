@@ -184,20 +184,15 @@ void othello::SearchTreeBase::expand_and_backward_impl(PositionEvaluation &evalu
             return evaluation.get_prior_probability(action);
         });
     }
-    const auto run_backward =
-        [this,
-         leaf_index,
-         player1_action_value(evaluation.player1_action_value())]<bool BackwardVirtualLoss>() {
-            backward<BackwardVirtualLoss>(leaf_index, player1_action_value);
-        };
+    const float player1_action_value = evaluation.player1_action_value();
     if constexpr (VirtualLoss) {
         if (leaf.position.is_terminal()) {
-            run_backward<false>();
+            backward<false>(leaf_index, player1_action_value);
         } else {
-            run_backward<true>();
+            backward<true>(leaf_index, player1_action_value);
         }
     } else {
-        run_backward<false>();
+        backward<false>(leaf_index, player1_action_value);
     }
 }
 

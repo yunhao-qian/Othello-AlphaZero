@@ -158,7 +158,7 @@ constexpr std::uint64_t get_potential_flips_in_direction(
 ) noexcept {
     opponent_discs &= MASKS[Direction];
     std::uint64_t flips = opponent_discs & shift<Direction>(player_discs);
-    for (const int i : std::views::iota(0, 5)) {
+    for ([[maybe_unused]] const int i : std::views::iota(0, 5)) {
         flips |= opponent_discs & shift<Direction>(flips);
     }
     return flips;
@@ -308,7 +308,7 @@ constexpr std::string othello::Position::to_string() const {
     for (std::uint64_t square_mask = std::uint64_t(1) << 63;
          const int row : std::views::iota(0, 8)) {
         result.push_back(static_cast<char>('1' + row));
-        for (const int col : std::views::iota(0, 8)) {
+        for ([[maybe_unused]] const int col : std::views::iota(0, 8)) {
             result.push_back(' ');
             const char *square;
             if (square_mask & m_player1_discs) {
