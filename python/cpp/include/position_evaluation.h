@@ -92,7 +92,7 @@ private:
     std::mutex m_result_mutex;
     std::condition_variable m_result_condition_variable;
     bool m_is_result_ready;
-    std::array<float, 64> m_policy;
+    std::array<float, 65> m_policy;
     float m_player1_action_value;
 };
 

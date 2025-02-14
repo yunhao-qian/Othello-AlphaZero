@@ -16,6 +16,8 @@ find_package(Boost 1.83 REQUIRED COMPONENTS container CONFIG)
 add_library(
     othello_alphazero_core
     STATIC
+    cpp/lib/neural_net_input_thread.cpp
+    cpp/lib/neural_net_output_thread.cpp
     cpp/lib/position_evaluation.cpp
     cpp/lib/search_tree_base.cpp
     cpp/lib/search_tree_for_self_play.cpp

@@ -101,7 +101,7 @@ bool othello::PositionEvaluation::set_position(
 void othello::PositionEvaluation::set_result(const float *const policy, const float value) {
     {
         std::lock_guard<std::mutex> lock(m_result_mutex);
-        std::copy_n(policy, 64, m_policy.begin());
+        std::copy_n(policy, 65, m_policy.begin());
         m_player1_action_value = m_player == 1 ? value : -value;
         m_is_result_ready = true;
     }
