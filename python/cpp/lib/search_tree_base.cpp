@@ -41,9 +41,9 @@ void othello::SearchTreeBase::set_c_puct_base(const float value) {
 
 void othello::SearchTreeBase::reset_position() {
     m_nodes.clear();
-    m_nodes.push_back(SearchNode{
-        .position = Position::initial_position(), .parent_index = 0, .prior_probability = 1.f
-    });
+    m_nodes.push_back(
+        SearchNode{.position = INITIAL_POSITION, .parent_index = 0, .prior_probability = 1.f}
+    );
     m_root_index = 0;
 }
 

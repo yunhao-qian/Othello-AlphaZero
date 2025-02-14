@@ -20,6 +20,10 @@ namespace othello {
  */
 class Position {
 public:
+    /**
+     * @brief Gets the initial position of a game.
+     * @return Initial position.
+     */
     static constexpr Position initial_position() noexcept;
 
     /**
@@ -330,5 +334,14 @@ constexpr std::string othello::Position::to_string() const {
 
     return result;
 }
+
+namespace othello {
+
+/**
+ * @brief Initial position of a game.
+ */
+constexpr Position INITIAL_POSITION = Position::initial_position();
+
+}  // namespace othello
 
 #endif  // OTHELLO_ALPHAZERO_POSITION_H
