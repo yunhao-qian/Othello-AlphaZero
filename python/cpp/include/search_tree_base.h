@@ -150,11 +150,11 @@ private:
 }  // namespace othello
 
 template <typename Derived, bool DirichletNoise, bool VirtualLoss>
-void othello::SearchTreeBase::forward_and_evaluate_impl(
+auto othello::SearchTreeBase::forward_and_evaluate_impl(
     PositionEvaluation &evaluation,
     ThreadSafeQueue<PositionEvaluation *> &queue,
     std::mt19937 &random_engine
-) {
+) -> void {
     {
         const auto search_tree_lock = static_cast<Derived *>(this)->lock_search_tree();
         std::uint32_t leaf_index;
@@ -174,7 +174,7 @@ void othello::SearchTreeBase::forward_and_evaluate_impl(
 }
 
 template <typename Derived, bool VirtualLoss>
-void othello::SearchTreeBase::expand_and_backward_impl(PositionEvaluation &evaluation) {
+auto othello::SearchTreeBase::expand_and_backward_impl(PositionEvaluation &evaluation) -> void {
     evaluation.wait_for_result();
     const auto search_tree_lock = static_cast<Derived *>(this)->lock_search_tree();
     const auto leaf_index = evaluation.leaf_index();
@@ -197,7 +197,7 @@ void othello::SearchTreeBase::expand_and_backward_impl(PositionEvaluation &evalu
 }
 
 template <typename Derived, typename... Args>
-std::uint32_t othello::SearchTreeBase::forward(Args &...args) {
+auto othello::SearchTreeBase::forward(Args &...args) -> std::uint32_t {
     SearchNode &root = m_nodes[m_root_index];
     const SearchNode *node = &root;
     while (!(node->position.is_terminal() || node->child_indices.empty())) {
@@ -209,9 +209,8 @@ std::uint32_t othello::SearchTreeBase::forward(Args &...args) {
 }
 
 template <typename Derived, typename... Args>
-const othello::SearchNode &othello::SearchTreeBase::select_child(
-    const SearchNode &node, Args &...args
-) {
+auto othello::SearchTreeBase::select_child(const SearchNode &node, Args &...args)
+    -> const SearchNode & {
     const SearchNode &first_child = m_nodes[node.child_indices.front()];
     if (node.child_indices.size() == 1) {
         return first_child;
@@ -274,9 +273,9 @@ const othello::SearchNode &othello::SearchTreeBase::select_child(
 }
 
 template <std::invocable<int> Invocable>
-void othello::SearchTreeBase::expand(
+auto othello::SearchTreeBase::expand(
     const std::uint32_t leaf_index, Invocable get_prior_probability
-) {
+) -> void {
     const int num_legal_moves = std::popcount(m_nodes[leaf_index].position.legal_moves());
     const std::size_t num_legal_actions = num_legal_moves == 0 ? 1 : num_legal_moves;
     m_nodes.reserve(m_nodes.size() + num_legal_actions);
@@ -297,9 +296,9 @@ void othello::SearchTreeBase::expand(
 }
 
 template <bool VirtualLoss>
-void othello::SearchTreeBase::backward(
+auto othello::SearchTreeBase::backward(
     const std::uint32_t leaf_index, const float player1_action_value
-) noexcept {
+) noexcept -> void {
     const SearchNode *const root = &m_nodes[m_root_index];
     SearchNode *node = &m_nodes[leaf_index];
     if (node == root) {

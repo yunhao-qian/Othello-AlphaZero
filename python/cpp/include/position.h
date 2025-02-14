@@ -13,6 +13,9 @@
 #include <string>
 #include <tuple>
 
+/**
+ * @brief Namespace for all classes and functions in the Othello-AlphaZero project.
+ */
 namespace othello {
 
 /**
@@ -160,7 +163,8 @@ template <int Direction>
 constexpr std::uint64_t get_potential_flips_in_direction(
     const std::uint64_t player_discs, std::uint64_t opponent_discs
 ) noexcept {
-    opponent_discs &= MASKS[Direction];
+    constexpr std::uint64_t mask = MASKS[Direction];
+    opponent_discs &= mask;
     std::uint64_t flips = opponent_discs & shift<Direction>(player_discs);
     for ([[maybe_unused]] const int i : std::views::iota(0, 5)) {
         flips |= opponent_discs & shift<Direction>(flips);
@@ -173,23 +177,20 @@ constexpr std::uint64_t get_legal_moves(
 ) noexcept {
     std::uint64_t legal_moves = 0;
 
-#define OTHELLO_ALPHAZERO_CHECK_DIRECTION(Direction)                                   \
-    do {                                                                               \
-        const std::uint64_t potential_flips =                                          \
-            get_potential_flips_in_direction<Direction>(player_discs, opponent_discs); \
-        legal_moves |= shift<Direction>(potential_flips);                              \
-    } while (false)
+    const auto check_direction = [&legal_moves, player_discs, opponent_discs]<int Direction>() {
+        const std::uint64_t potential_flips =
+            get_potential_flips_in_direction<Direction>(player_discs, opponent_discs);
+        legal_moves |= shift<Direction>(potential_flips);
+    };
 
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(0);
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(1);
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(2);
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(3);
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(4);
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(5);
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(6);
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(7);
-
-#undef OTHELLO_ALPHAZERO_CHECK_DIRECTION
+    check_direction.operator()<0>();
+    check_direction.operator()<1>();
+    check_direction.operator()<2>();
+    check_direction.operator()<3>();
+    check_direction.operator()<4>();
+    check_direction.operator()<5>();
+    check_direction.operator()<6>();
+    check_direction.operator()<7>();
 
     legal_moves &= ~(player_discs | opponent_discs);
     return legal_moves;
@@ -202,25 +203,23 @@ constexpr std::uint64_t get_flips(
 ) noexcept {
     std::uint64_t flips = 0;
 
-#define OTHELLO_ALPHAZERO_CHECK_DIRECTION(Direction)                                \
-    do {                                                                            \
-        const std::uint64_t potential_flips =                                       \
-            get_potential_flips_in_direction<Direction>(move_mask, opponent_discs); \
-        if ((shift<Direction>(potential_flips) & player_discs) != 0) {              \
-            flips |= potential_flips;                                               \
-        }                                                                           \
-    } while (false)
+    const auto check_direction =
+        [&flips, move_mask, player_discs, opponent_discs]<int Direction>() {
+            const std::uint64_t potential_flips =
+                get_potential_flips_in_direction<Direction>(move_mask, opponent_discs);
+            if ((shift<Direction>(potential_flips) & player_discs) != 0) {
+                flips |= potential_flips;
+            };
+        };
 
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(0);
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(1);
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(2);
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(3);
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(4);
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(5);
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(6);
-    OTHELLO_ALPHAZERO_CHECK_DIRECTION(7);
-
-#undef OTHELLO_ALPHAZERO_CHECK_DIRECTION
+    check_direction.operator()<0>();
+    check_direction.operator()<1>();
+    check_direction.operator()<2>();
+    check_direction.operator()<3>();
+    check_direction.operator()<4>();
+    check_direction.operator()<5>();
+    check_direction.operator()<6>();
+    check_direction.operator()<7>();
 
     return flips;
 }
@@ -229,7 +228,7 @@ constexpr std::uint64_t get_flips(
 
 }  // namespace othello
 
-constexpr othello::Position othello::Position::initial_position() noexcept {
+constexpr auto othello::Position::initial_position() noexcept -> Position {
     constexpr std::uint64_t player1_discs =
         0b00000000'00000000'00000000'00001000'00010000'00000000'00000000'00000000;
     constexpr std::uint64_t player2_discs =
@@ -239,7 +238,7 @@ constexpr othello::Position othello::Position::initial_position() noexcept {
 }
 
 template <typename OutputIt>
-constexpr OutputIt othello::Position::legal_actions(OutputIt output) const {
+constexpr auto othello::Position::legal_actions(OutputIt output) const -> OutputIt {
     if (is_terminal()) {
         return output;
     }
@@ -259,7 +258,7 @@ constexpr OutputIt othello::Position::legal_actions(OutputIt output) const {
     return output;
 }
 
-constexpr othello::Position othello::Position::apply_move(std::uint64_t move_mask) const noexcept {
+constexpr auto othello::Position::apply_move(std::uint64_t move_mask) const noexcept -> Position {
     int player = 3 - m_player;
     std::uint64_t player1_discs = m_player1_discs;
     std::uint64_t player2_discs = m_player2_discs;
@@ -290,18 +289,18 @@ constexpr othello::Position othello::Position::apply_move(std::uint64_t move_mas
     return Position(player, player1_discs, player2_discs, legal_moves, next_legal_moves);
 }
 
-constexpr othello::Position othello::Position::apply_pass() const noexcept {
+constexpr auto othello::Position::apply_pass() const noexcept -> Position {
     return Position(3 - m_player, m_player1_discs, m_player2_discs, m_next_legal_moves, 0);
 }
 
-constexpr othello::Position othello::Position::apply_action(const int action) const noexcept {
+constexpr auto othello::Position::apply_action(const int action) const noexcept -> Position {
     if (action == 64) {
         return apply_pass();
     }
     return apply_move(std::uint64_t(1) << (63 - action));
 }
 
-constexpr std::string othello::Position::to_string() const {
+constexpr auto othello::Position::to_string() const -> std::string {
     std::string result;
     // Black Circle and White Circle are 3 bytes long.
     // Multiplication Sign and Middle Dot are 2 bytes long.

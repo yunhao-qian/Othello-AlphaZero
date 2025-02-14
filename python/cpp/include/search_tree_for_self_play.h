@@ -100,22 +100,22 @@ private:
     std::array<float, 33> m_dirichlet_noise;
 };
 
+}  // namespace othello
+
 template <bool VirtualLoss>
-void othello::SearchTreeForSelfPlay::forward_and_evaluate(
+auto othello::SearchTreeForSelfPlay::forward_and_evaluate(
     PositionEvaluation &evaluation,
     ThreadSafeQueue<PositionEvaluation *> &queue,
     std::mt19937 &random_engine
-) {
+) -> void {
     forward_and_evaluate_impl<SearchTreeForSelfPlay, true, VirtualLoss>(
         evaluation, queue, random_engine
     );
 }
 
 template <bool VirtualLoss>
-void othello::SearchTreeForSelfPlay::expand_and_backward(PositionEvaluation &evaluation) {
+auto othello::SearchTreeForSelfPlay::expand_and_backward(PositionEvaluation &evaluation) -> void {
     expand_and_backward_impl<SearchTreeForSelfPlay, VirtualLoss>(evaluation);
 }
-
-}  // namespace othello
 
 #endif  // OTHELLO_ALPHAZERO_SEARCH_TREE_FOR_SELF_PLAY_H

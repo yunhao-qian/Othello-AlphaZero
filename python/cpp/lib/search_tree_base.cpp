@@ -15,7 +15,7 @@ othello::SearchTreeBase::SearchTreeBase(const float c_puct_init, const float c_p
     reset_position();
 }
 
-void othello::SearchTreeBase::set_c_puct_init(const float value) {
+auto othello::SearchTreeBase::set_c_puct_init(const float value) -> void {
     if (!std::isfinite(value)) {
         throw std::invalid_argument(
             std::format("Expected c_puct_init to be finite, but got {}.", value)
@@ -27,7 +27,7 @@ void othello::SearchTreeBase::set_c_puct_init(const float value) {
     m_c_puct_init = value;
 }
 
-void othello::SearchTreeBase::set_c_puct_base(const float value) {
+auto othello::SearchTreeBase::set_c_puct_base(const float value) -> void {
     if (!std::isfinite(value)) {
         throw std::invalid_argument(
             std::format("Expected c_puct_base to be finite, but got {}.", value)
@@ -39,7 +39,7 @@ void othello::SearchTreeBase::set_c_puct_base(const float value) {
     m_c_puct_base = value;
 }
 
-void othello::SearchTreeBase::reset_position() {
+auto othello::SearchTreeBase::reset_position() -> void {
     m_nodes.clear();
     m_nodes.push_back(
         SearchNode{.position = INITIAL_POSITION, .parent_index = 0, .prior_probability = 1.f}
@@ -47,7 +47,7 @@ void othello::SearchTreeBase::reset_position() {
     m_root_index = 0;
 }
 
-void othello::SearchTreeBase::apply_action(const int action) {
+auto othello::SearchTreeBase::apply_action(const int action) -> void {
     SearchNode &root = m_nodes[m_root_index];
 
     if (root.child_indices.empty()) {
@@ -83,7 +83,8 @@ void othello::SearchTreeBase::apply_action(const int action) {
     ++m_root_index;
 }
 
-void othello::SearchTreeBase::propagate_virtual_loss(const std::uint32_t leaf_index) noexcept {
+auto othello::SearchTreeBase::propagate_virtual_loss(const std::uint32_t leaf_index) noexcept
+    -> void {
     const SearchNode *const root = &m_nodes[m_root_index];
     for (SearchNode *node = &m_nodes[leaf_index]; node != root;
          node = &m_nodes[node->parent_index]) {
@@ -93,11 +94,11 @@ void othello::SearchTreeBase::propagate_virtual_loss(const std::uint32_t leaf_in
     }
 }
 
-std::uint32_t othello::SearchTreeBase::clone_nodes(
+auto othello::SearchTreeBase::clone_nodes(
     const SearchNode &old_node,
     const std::uint32_t new_parent_index,
     std::vector<SearchNode> &new_nodes
-) const {
+) const -> std::uint32_t {
     const std::uint32_t new_node_index = static_cast<std::uint32_t>(new_nodes.size());
     new_nodes.push_back(SearchNode{
         .position = old_node.position,

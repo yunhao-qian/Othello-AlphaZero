@@ -57,18 +57,18 @@ private:
 }  // namespace othello
 
 template <bool VirtualLoss>
-void othello::SearchTreeForDeployment::forward_and_evaluate(
+auto othello::SearchTreeForDeployment::forward_and_evaluate(
     PositionEvaluation &evaluation,
     ThreadSafeQueue<PositionEvaluation *> &queue,
     std::mt19937 &random_engine
-) {
+) -> void {
     forward_and_evaluate_impl<SearchTreeForDeployment, false, VirtualLoss>(
         evaluation, queue, random_engine
     );
 }
 
 template <bool VirtualLoss>
-void othello::SearchTreeForDeployment::expand_and_backward(PositionEvaluation &evaluation) {
+auto othello::SearchTreeForDeployment::expand_and_backward(PositionEvaluation &evaluation) -> void {
     expand_and_backward_impl<SearchTreeForDeployment, VirtualLoss>(evaluation);
 }
 

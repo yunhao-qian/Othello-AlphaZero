@@ -21,7 +21,7 @@ othello::SearchTreeForSelfPlay::SearchTreeForSelfPlay(
     set_dirichlet_alpha(dirichlet_alpha);
 }
 
-void othello::SearchTreeForSelfPlay::set_dirichlet_epsilon(const float value) {
+auto othello::SearchTreeForSelfPlay::set_dirichlet_epsilon(const float value) -> void {
     if (!(0.f <= value && value <= 1.f)) {
         throw std::invalid_argument(
             std::format("Expected 0 <= dirichlet_epsilon <= 1, but got {}.", value)
@@ -30,7 +30,7 @@ void othello::SearchTreeForSelfPlay::set_dirichlet_epsilon(const float value) {
     m_dirichlet_epsilon = value;
 }
 
-void othello::SearchTreeForSelfPlay::set_dirichlet_alpha(const float value) {
+auto othello::SearchTreeForSelfPlay::set_dirichlet_alpha(const float value) -> void {
     if (!std::isfinite(value)) {
         throw std::invalid_argument(
             std::format("Expected dirichlet_alpha to be finite, but got {}.", value)
@@ -43,9 +43,9 @@ void othello::SearchTreeForSelfPlay::set_dirichlet_alpha(const float value) {
     m_dirichlet_alpha = value;
 }
 
-std::tuple<const float *, float> othello::SearchTreeForSelfPlay::sample_dirichlet_noise(
+auto othello::SearchTreeForSelfPlay::sample_dirichlet_noise(
     const std::size_t num_children, std::mt19937 &random_engine
-) {
+) -> std::tuple<const float *, float> {
     std::gamma_distribution<float> gamma_distribution(m_dirichlet_alpha, 1.f);
     float noise_sum = 0.f;
     for (float &noise : m_dirichlet_noise | std::views::take(num_children)) {

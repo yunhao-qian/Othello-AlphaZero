@@ -1,6 +1,6 @@
 #include "neural_net_output_thread.h"
 
-void othello::neural_network_output_thread(ThreadSafeQueue<OutputBatch> &queue) {
+auto othello::neural_network_output_thread(ThreadSafeQueue<OutputBatch> &queue) -> void {
     while (true) {
         OutputBatch batch = queue.pop();
         if (batch.evaluations.empty()) {

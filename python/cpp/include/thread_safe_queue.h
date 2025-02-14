@@ -43,7 +43,7 @@ private:
 
 template <typename T>
 template <typename... Args>
-void othello::ThreadSafeQueue<T>::emplace(Args &&...args) {
+auto othello::ThreadSafeQueue<T>::emplace(Args &&...args) -> void {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_queue.emplace(std::forward<Args>(args)...);
     // We expect the queue to be multi-in single-out, so notify_one is enough.
@@ -51,7 +51,7 @@ void othello::ThreadSafeQueue<T>::emplace(Args &&...args) {
 }
 
 template <typename T>
-T othello::ThreadSafeQueue<T>::pop() {
+auto othello::ThreadSafeQueue<T>::pop() -> T {
     std::unique_lock<std::mutex> lock(m_mutex);
     m_condition_variable.wait(lock, [this] { return !m_queue.empty(); });
     T value = std::move(m_queue.front());

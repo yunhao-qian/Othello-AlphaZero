@@ -47,9 +47,9 @@ constexpr std::array<std::array<int, 65>, 8> TRANSFORMED_ACTIONS = compute_trans
 othello::PositionEvaluation::PositionEvaluation(const int history_size)
     : m_history_size(history_size), m_input_features((history_size * 2 + 1) * 64) {}
 
-bool othello::PositionEvaluation::set_position(
+auto othello::PositionEvaluation::set_position(
     const SearchTreeBase &search_tree, const std::uint32_t leaf_index, std::mt19937 &random_engine
-) noexcept {
+) noexcept -> bool {
     m_leaf_index = leaf_index;
 
     const Position &leaf_position = search_tree.nodes()[leaf_index].position;
@@ -98,7 +98,7 @@ bool othello::PositionEvaluation::set_position(
     return true;
 }
 
-void othello::PositionEvaluation::set_result(const float *const policy, const float value) {
+auto othello::PositionEvaluation::set_result(const float *const policy, const float value) -> void {
     {
         std::lock_guard<std::mutex> lock(m_result_mutex);
         std::copy_n(policy, 65, m_policy.begin());
@@ -108,12 +108,12 @@ void othello::PositionEvaluation::set_result(const float *const policy, const fl
     m_result_condition_variable.notify_one();
 }
 
-void othello::PositionEvaluation::wait_for_result() {
+auto othello::PositionEvaluation::wait_for_result() -> void {
     std::unique_lock<std::mutex> lock(m_result_mutex);
     m_result_condition_variable.wait(lock, [this] { return m_is_result_ready; });
 }
 
-float othello::PositionEvaluation::get_prior_probability(const int action) const noexcept {
+auto othello::PositionEvaluation::get_prior_probability(const int action) const noexcept -> float {
     const int transformed_action = TRANSFORMED_ACTIONS[m_transformation][action];
     return m_policy[transformed_action];
 }

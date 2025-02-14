@@ -9,13 +9,13 @@
 #include <cstddef>
 #include <utility>
 
-void othello::neural_net_input_thread(
+auto othello::neural_net_input_thread(
     ThreadSafeQueue<PositionEvaluation *> &input_queue,
     ThreadSafeQueue<InputBatch> &output_queue,
     const int history_size,
     const int batch_size,
     int num_evaluations
-) {
+) -> void {
     InputBatch batch;
     const std::size_t num_input_features = batch_size * (history_size * 2 + 1) * 64;
     batch.input_features.reserve(num_input_features);
